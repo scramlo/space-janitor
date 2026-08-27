@@ -13,7 +13,9 @@ export class UpgradeScreen {
     private readonly description: HTMLElement;
     private readonly cost: HTMLElement;
     private readonly funds: HTMLElement;
+    private readonly hint: HTMLElement;
     private readonly buy: HTMLButtonElement;
+    private readonly skip: HTMLButtonElement;
 
     constructor(onBuy: () => void, onSkip: () => void) {
         this.root = el('section', 'screen');
@@ -21,28 +23,25 @@ export class UpgradeScreen {
         this.description = el('p', 'screen__body');
         this.cost = el('p', 'screen__note');
         this.funds = el('p', 'screen__funds');
+        this.hint = el('p', 'screen__hint');
         this.buy = el('button', 'btn btn--primary');
         this.buy.type = 'button';
         this.buy.addEventListener('click', () => onBuy());
 
-        const skip = el('button', 'btn', copy.upgradeSkip);
-        skip.type = 'button';
-        skip.addEventListener('click', () => onSkip());
+        this.skip = el('button', 'btn', copy.upgradeSkip);
+        this.skip.type = 'button';
+        this.skip.addEventListener('click', () => onSkip());
 
         const panel = el('div', 'panel');
         const actions = el('div', 'panel__actions');
-        actions.append(this.buy, skip);
+        actions.append(this.buy, this.skip);
         panel.append(
             el('p', 'panel__eyebrow', `${copy.company}  ·  ${copy.upgradeEyebrow}`),
             this.name,
             this.description,
             this.cost,
             this.funds,
-            el(
-                'p',
-                'screen__hint',
-                'Improved thrusters increase collection efficiency on future jobs. Deadlines remain contractual.'
-            ),
+            this.hint,
             actions
         );
         this.root.append(panel);
@@ -55,8 +54,14 @@ export class UpgradeScreen {
         this.description.textContent = upgrade.description;
         this.cost.textContent = `Requisition cost: ${formatMoney(upgrade.cost)}`;
         this.funds.textContent = `Available funds ${formatMoney(session.money)}  ·  Surgery target ${formatMoney(gameConfig.surgeryCost)}`;
+        this.hint.textContent = owned
+            ? copy.upgradeInstalled
+            : 'Improved thrusters increase collection efficiency on future jobs. Deadlines remain contractual.';
         this.buy.textContent = owned ? copy.upgradeOwned : copy.upgradeBuy;
         this.buy.disabled = owned || !canPurchase(session, upgrade);
+        setHidden(this.buy, owned);
+        this.skip.textContent = owned ? copy.continueDuty : copy.upgradeSkip;
+        this.skip.classList.toggle('btn--primary', owned);
         setHidden(this.root, false);
     }
 

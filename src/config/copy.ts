@@ -10,6 +10,8 @@ export const copy = {
     upgradeBuy: 'AUTHORIZE PURCHASE',
     upgradeOwned: 'ALREADY INSTALLED',
     upgradeSkip: 'DECLINE AND RETURN TO DUTY',
+    upgradeInstalled:
+        'Requisition complete. Thrusters are installed and will apply on the next assignment. Deadlines remain contractual.',
     continueDuty: 'RETURN TO DUTY ROSTER',
     gameOverTitle: 'EMPLOYMENT TERMINATED',
     gameOverBody:

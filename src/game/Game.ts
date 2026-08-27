@@ -13,14 +13,14 @@ import type { JobPayout } from '../systems/Economy.ts';
 import { hasReachedSurgeryFund, isFired } from '../systems/Employment.ts';
 import { JobSystem } from '../systems/JobSystem.ts';
 import { Timer } from '../systems/Timer.ts';
-import { movementMultipliers, purchaseUpgrade } from '../systems/UpgradeSystem.ts';
+import { canPurchase, movementMultipliers, purchaseUpgrade } from '../systems/UpgradeSystem.ts';
 import { GameUI } from '../ui/GameUI.ts';
 import { buildBay } from '../world/buildBay.ts';
 import { CollectionSystem } from '../world/CollectionSystem.ts';
 import { DebrisField } from '../world/DebrisField.ts';
 
 import { GameScreen } from './screens.ts';
-import { createSession  } from './session.ts';
+import { createSession, ownsUpgrade } from './session.ts';
 import type { GameSession } from './session.ts';
 
 export class Game {
@@ -123,6 +123,10 @@ export class Game {
             return;
         }
         if (this.screen === GameScreen.Upgrade) {
+            if (canPurchase(this.session, thrusterUpgrade())) {
+                this.buyUpgrade();
+                return;
+            }
             this.enterBriefing();
             return;
         }
@@ -170,6 +174,10 @@ export class Game {
             this.setScreen(GameScreen.GameOver);
             return;
         }
+        if (ownsUpgrade(this.session, thrusterUpgrade().id)) {
+            this.enterBriefing();
+            return;
+        }
         this.setScreen(GameScreen.Upgrade);
     }
 
@@ -183,7 +191,7 @@ export class Game {
         }
         this.applyUpgrades();
         writeSave(this.session);
-        this.ui.refreshUpgrade(upgrade, this.session);
+        this.enterBriefing();
     }
 
     private enterBriefing(): void {

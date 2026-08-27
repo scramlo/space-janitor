@@ -82,10 +82,6 @@ export class GameUI {
         this.hud.render(snapshot);
     }
 
-    refreshUpgrade(upgrade: UpgradeDef, session: GameSession): void {
-        this.upgrade.show(upgrade, session);
-    }
-
     private hideAll(): void {
         this.briefing.hide();
         this.results.hide();
