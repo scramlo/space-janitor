@@ -12,7 +12,7 @@ import {
     LIGHTFALLOFF_LINEAR,
     Vec3
 } from 'playcanvas';
-import type { AppBase, Asset, Keyboard, LightComponent, StandardMaterial } from 'playcanvas';
+import type { AppBase, Asset, Keyboard, LightComponent } from 'playcanvas';
 
 import { gameConfig } from '../config/gameConfig.ts';
 import type { JobBounds, JobStart } from '../config/jobs.ts';
@@ -51,7 +51,6 @@ export class ShipController {
     private hits = 0;
     private headlightOn = true;
     private headlight: LightComponent | null = null;
-    private lampMat: StandardMaterial | null = null;
     private visual!: Entity;
     private modelRoot: Entity | null = null;
     private showcasing = false;
@@ -237,13 +236,11 @@ export class ShipController {
     }
 
     toggleHeadlight(): void {
-        if (!this.headlight || !this.lampMat) {
+        if (!this.headlight) {
             return;
         }
         this.headlightOn = !this.headlightOn;
         this.headlight.enabled = this.headlightOn;
-        this.lampMat.emissiveIntensity = this.headlightOn ? 1.1 : 0;
-        this.lampMat.update();
     }
 
     private bounce(value: number, min: number, max: number, axis: 'x' | 'y' | 'z'): number {
@@ -286,12 +283,6 @@ export class ShipController {
 
     private attachLights(): void {
         const visual = this.visual;
-        const lampMat = createLitMaterial(1, 0.92, 0.72, { metalness: 0.1, gloss: 0.5, emissive: 1.1 });
-        this.lampMat = lampMat;
-        const lamp = createPrimitive('Headlamp', 'box', lampMat, { castShadows: false });
-        lamp.setLocalScale(0.28, 0.12, 0.14);
-        lamp.setLocalPosition(0, 0.35, -1.85);
-        visual.addChild(lamp);
 
         const fill = new Entity('ShipFill');
         fill.addComponent('light', {
