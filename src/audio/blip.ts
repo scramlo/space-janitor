@@ -1,13 +1,9 @@
-let context: AudioContext | null = null;
+import { getAudioContext } from './context.ts';
 
 export function playCollectBlip(): void {
-    const AudioCtx = window.AudioContext || (window as Window & { webkitAudioContext?: typeof AudioContext }).webkitAudioContext;
-    if (!AudioCtx) {
+    const context = getAudioContext();
+    if (!context) {
         return;
-    }
-    context ??= new AudioCtx();
-    if (context.state === 'suspended') {
-        void context.resume();
     }
 
     const now = context.currentTime;

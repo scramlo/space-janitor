@@ -6,6 +6,7 @@ import type { JobPayout } from '../systems/Economy.ts';
 
 import { Hud  } from './hud.ts';
 import type { HudSnapshot } from './hud.ts';
+import { GoCue } from './GoCue.ts';
 import { BriefingScreen } from './screens/BriefingScreen.ts';
 import { GameOverScreen } from './screens/GameOverScreen.ts';
 import { ResultsScreen } from './screens/ResultsScreen.ts';
@@ -14,6 +15,7 @@ import { VictoryScreen } from './screens/VictoryScreen.ts';
 
 export class GameUI {
     readonly hud: Hud;
+    private readonly goCue: GoCue;
     private readonly briefing: BriefingScreen;
     private readonly results: ResultsScreen;
     private readonly upgrade: UpgradeScreen;
@@ -29,6 +31,7 @@ export class GameUI {
     }) {
         host.classList.add('ui-root');
         this.hud = new Hud();
+        this.goCue = new GoCue();
         this.briefing = new BriefingScreen(handlers.onAcceptJob);
         this.results = new ResultsScreen(handlers.onAcknowledgeResults);
         this.upgrade = new UpgradeScreen(handlers.onBuyUpgrade, handlers.onSkipUpgrade);
@@ -36,6 +39,7 @@ export class GameUI {
         this.victory = new VictoryScreen(handlers.onRestart);
         host.append(
             this.hud.root,
+            this.goCue.root,
             this.briefing.root,
             this.results.root,
             this.upgrade.root,
@@ -82,7 +86,12 @@ export class GameUI {
         this.hud.render(snapshot);
     }
 
+    showGoCue(): void {
+        this.goCue.show();
+    }
+
     private hideAll(): void {
+        this.goCue.hide();
         this.briefing.hide();
         this.results.hide();
         this.upgrade.hide();

@@ -84,6 +84,54 @@ body {
     color: var(--danger);
 }
 
+.go-cue {
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    pointer-events: none;
+    z-index: 5;
+}
+
+.go-cue__label {
+    color: var(--amber);
+    font-size: clamp(64px, 14vw, 120px);
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-shadow:
+        0 0 24px #e0b12288,
+        0 8px 28px var(--shadow);
+    opacity: 0;
+    transform: scale(0.82);
+}
+
+.go-cue__label.is-playing {
+    animation: go-cue-pop 1.2s ease-out forwards;
+}
+
+@keyframes go-cue-pop {
+    0% {
+        opacity: 0;
+        transform: scale(0.72);
+    }
+    12% {
+        opacity: 1;
+        transform: scale(1.08);
+    }
+    28% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    70% {
+        opacity: 1;
+        transform: scale(1);
+    }
+    100% {
+        opacity: 0;
+        transform: scale(1.12);
+    }
+}
+
 .screen {
     position: absolute;
     inset: 0;

@@ -4,6 +4,10 @@ export const gameConfig = {
     startingEmployment: 80,
     dtClamp: 0.05,
     saveKey: 'space-janitor-mvp',
+    /** Seconds to hold still after Accept while the engine start SFX plays. */
+    jobStartHold: 3,
+    /** "GO!" cue length; shown this many seconds before the hold ends so it clears with the SFX. */
+    goCueDuration: 1.2,
     employment: {
         successDelta: 10,
         failDelta: -25,

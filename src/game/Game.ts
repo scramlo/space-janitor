@@ -2,6 +2,7 @@ import { KEY_ENTER, KEY_SPACE  } from 'playcanvas';
 import type { AppBase, Asset } from 'playcanvas';
 
 import { playCollectBlip } from '../audio/blip.ts';
+import { playTruckEngineStart } from '../audio/truckEngine.ts';
 import { gameConfig } from '../config/gameConfig.ts';
 import { assignmentFor } from '../config/jobs.ts';
 import type { JobDef } from '../config/jobs.ts';
@@ -46,6 +47,8 @@ export class Game {
     private screen: GameScreen = GameScreen.Briefing;
     private payout: JobPayout | null = null;
     private confirmLock = 0.35;
+    private startHold = 0;
+    private goCueArmed = false;
     private readonly textures: WorldTextures;
 
     constructor(app: AppBase, uiHost: HTMLElement, textures: WorldTextures = emptyWorldTextures()) {
@@ -93,6 +96,20 @@ export class Game {
 
         if (this.screen !== GameScreen.Playing) {
             this.camera.update(clamped);
+            return;
+        }
+
+        if (this.startHold > 0) {
+            this.startHold = Math.max(0, this.startHold - clamped);
+            this.camera.update(clamped);
+            this.ui.renderHud(this.hudSnapshot());
+            if (this.goCueArmed && this.startHold <= gameConfig.goCueDuration) {
+                this.goCueArmed = false;
+                this.ui.showGoCue();
+            }
+            if (this.startHold === 0) {
+                this.timer.resume();
+            }
             return;
         }
 
@@ -202,12 +219,18 @@ export class Game {
         this.debris.spawn(job, this.obstacles);
         this.jobSystem.start(job.debrisCount);
         this.timer.start(job.deadlineSeconds);
+        this.timer.stop();
+        this.startHold = gameConfig.jobStartHold;
+        this.goCueArmed = true;
         this.blurUi();
         this.setScreen(GameScreen.Playing);
         this.camera.snap();
+        playTruckEngineStart();
     }
 
     private finishJob(success: boolean): void {
+        this.startHold = 0;
+        this.goCueArmed = false;
         this.jobSystem.stop();
         this.timer.stop();
         this.payout = settleJob(this.job, success, this.timer.remaining, this.session, this.propertyDamage);

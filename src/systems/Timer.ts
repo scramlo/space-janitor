@@ -13,6 +13,13 @@ export class Timer {
         this.running = false;
     }
 
+    resume(): void {
+        if (this.duration <= 0 || this.remaining <= 0) {
+            return;
+        }
+        this.running = true;
+    }
+
     reset(): void {
         this.remaining = 0;
         this.duration = 0;

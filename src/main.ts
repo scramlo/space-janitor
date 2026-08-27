@@ -1,4 +1,5 @@
 import { createApp } from './app/createApp.ts';
+import { preloadTruckEngine } from './audio/truckEngine.ts';
 import { Game } from './game/Game.ts';
 import { garbageTruckTuning } from './player/garbageTruckTuning.ts';
 import { loadContainer } from './world/loadContainer.ts';
@@ -26,6 +27,7 @@ try {
     ]);
     game.setTextures({ rockWall, ...shipMaps });
     game.setTruckModel(truck);
+    preloadTruckEngine();
 } catch (error) {
     console.error('World assets failed to load', error);
 }
