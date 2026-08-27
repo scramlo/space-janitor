@@ -1,0 +1,236 @@
+import { KEY_ENTER, KEY_SPACE  } from 'playcanvas';
+import type { AppBase } from 'playcanvas';
+
+import { playCollectBlip } from '../audio/blip.ts';
+import { gameConfig } from '../config/gameConfig.ts';
+import { currentJob } from '../config/jobs.ts';
+import { thrusterUpgrade } from '../config/upgrades.ts';
+import { clearSave, loadSave, writeSave } from '../persist/save.ts';
+import { CameraController } from '../player/CameraController.ts';
+import { ShipController } from '../player/ShipController.ts';
+import { settleJob  } from '../systems/Economy.ts';
+import type { JobPayout } from '../systems/Economy.ts';
+import { hasReachedSurgeryFund, isFired } from '../systems/Employment.ts';
+import { JobSystem } from '../systems/JobSystem.ts';
+import { Timer } from '../systems/Timer.ts';
+import { movementMultipliers, purchaseUpgrade } from '../systems/UpgradeSystem.ts';
+import { GameUI } from '../ui/GameUI.ts';
+import { buildBay } from '../world/buildBay.ts';
+import { CollectionSystem } from '../world/CollectionSystem.ts';
+import { DebrisField } from '../world/DebrisField.ts';
+
+import { GameScreen } from './screens.ts';
+import { createSession  } from './session.ts';
+import type { GameSession } from './session.ts';
+
+export class Game {
+    private readonly app: AppBase;
+    private readonly ship: ShipController;
+    private readonly camera: CameraController;
+    private readonly debris: DebrisField;
+    private readonly collection: CollectionSystem;
+    private readonly jobSystem: JobSystem;
+    private readonly timer: Timer;
+    private readonly ui: GameUI;
+
+    private session: GameSession;
+    private screen: GameScreen = GameScreen.Briefing;
+    private payout: JobPayout | null = null;
+    private confirmLock = 0.35;
+
+    constructor(app: AppBase, uiHost: HTMLElement) {
+        this.app = app;
+        this.session = loadSave();
+        const job = currentJob();
+        buildBay(app, job);
+        this.ship = new ShipController(app, job.bounds);
+        this.camera = new CameraController(app, this.ship.entity);
+        this.debris = new DebrisField(app);
+        this.collection = new CollectionSystem();
+        this.jobSystem = new JobSystem();
+        this.timer = new Timer();
+        this.ui = new GameUI(uiHost, {
+            onAcceptJob: () => this.acceptJob(),
+            onAcknowledgeResults: () => this.acknowledgeResults(),
+            onBuyUpgrade: () => this.buyUpgrade(),
+            onSkipUpgrade: () => this.enterBriefing(),
+            onRestart: () => this.newCareer()
+        });
+        this.applyUpgrades();
+        this.debris.spawn(job);
+        this.ship.reset();
+        this.camera.snap();
+
+        if (this.session.outcome === 'victory') {
+            this.setScreen(GameScreen.Victory);
+        } else if (this.session.outcome === 'terminated') {
+            this.setScreen(GameScreen.GameOver);
+        } else {
+            this.setScreen(GameScreen.Briefing);
+        }
+    }
+
+    update(dt: number): void {
+        const clamped = Math.min(dt, gameConfig.dtClamp);
+        this.confirmLock = Math.max(0, this.confirmLock - clamped);
+        this.handleConfirmKeys();
+
+        if (this.screen !== GameScreen.Playing) {
+            this.camera.update(clamped);
+            return;
+        }
+
+        this.ship.update(clamped);
+        this.camera.update(clamped);
+        this.debris.spin(clamped);
+        const collected = this.collection.update(this.ship, this.debris);
+        if (collected > 0) {
+            this.jobSystem.noteCollected(collected);
+            playCollectBlip();
+        }
+        this.timer.update(clamped);
+        this.ui.renderHud(this.hudSnapshot());
+
+        if (this.jobSystem.isComplete()) {
+            this.finishJob(true);
+            return;
+        }
+        if (this.timer.expired) {
+            this.finishJob(false);
+        }
+    }
+
+    destroy(): void {
+        // Entities are destroyed with the application.
+    }
+
+    private handleConfirmKeys(): void {
+        const keyboard = this.app.keyboard;
+        if (!keyboard || this.confirmLock > 0) {
+            return;
+        }
+        const pressed = keyboard.wasPressed(KEY_SPACE) || keyboard.wasPressed(KEY_ENTER);
+        if (!pressed || this.screen === GameScreen.Playing) {
+            return;
+        }
+        this.blurUi();
+        if (this.screen === GameScreen.Briefing) {
+            this.acceptJob();
+            return;
+        }
+        if (this.screen === GameScreen.Results) {
+            this.acknowledgeResults();
+            return;
+        }
+        if (this.screen === GameScreen.Upgrade) {
+            this.enterBriefing();
+            return;
+        }
+        if (this.screen === GameScreen.GameOver || this.screen === GameScreen.Victory) {
+            this.newCareer();
+        }
+    }
+
+    private acceptJob(): void {
+        if (this.screen !== GameScreen.Briefing) {
+            return;
+        }
+        const job = currentJob();
+        this.ship.reset();
+        this.applyUpgrades();
+        this.debris.spawn(job);
+        this.jobSystem.start(job.debrisCount);
+        this.timer.start(job.deadlineSeconds);
+        this.camera.snap();
+        this.blurUi();
+        this.setScreen(GameScreen.Playing);
+    }
+
+    private finishJob(success: boolean): void {
+        this.jobSystem.stop();
+        this.timer.stop();
+        this.payout = settleJob(currentJob(), success, this.timer.remaining, this.session);
+        writeSave(this.session);
+        this.setScreen(GameScreen.Results);
+    }
+
+    private acknowledgeResults(): void {
+        if (this.screen !== GameScreen.Results) {
+            return;
+        }
+        if (hasReachedSurgeryFund(this.session)) {
+            this.session.outcome = 'victory';
+            writeSave(this.session);
+            this.setScreen(GameScreen.Victory);
+            return;
+        }
+        if (isFired(this.session)) {
+            this.session.outcome = 'terminated';
+            writeSave(this.session);
+            this.setScreen(GameScreen.GameOver);
+            return;
+        }
+        this.setScreen(GameScreen.Upgrade);
+    }
+
+    private buyUpgrade(): void {
+        if (this.screen !== GameScreen.Upgrade) {
+            return;
+        }
+        const upgrade = thrusterUpgrade();
+        if (!purchaseUpgrade(this.session, upgrade)) {
+            return;
+        }
+        this.applyUpgrades();
+        writeSave(this.session);
+        this.ui.refreshUpgrade(upgrade, this.session);
+    }
+
+    private enterBriefing(): void {
+        const job = currentJob();
+        this.ship.reset();
+        this.debris.spawn(job);
+        this.camera.snap();
+        this.setScreen(GameScreen.Briefing);
+    }
+
+    private newCareer(): void {
+        clearSave();
+        this.session = createSession();
+        writeSave(this.session);
+        this.applyUpgrades();
+        this.enterBriefing();
+    }
+
+    private applyUpgrades(): void {
+        const multipliers = movementMultipliers(this.session);
+        this.ship.setMultipliers(multipliers.thrust, multipliers.maxSpeed);
+    }
+
+    private setScreen(screen: GameScreen): void {
+        this.screen = screen;
+        this.confirmLock = 0.35;
+        this.ui.show(screen, {
+            job: currentJob(),
+            session: this.session,
+            payout: this.payout,
+            upgrade: thrusterUpgrade(),
+            hud: this.hudSnapshot()
+        });
+    }
+
+    private hudSnapshot() {
+        return {
+            timeRemaining: this.timer.remaining,
+            debrisRemaining: this.jobSystem.remaining(),
+            money: this.session.money,
+            employment: this.session.employment
+        };
+    }
+
+    private blurUi(): void {
+        if (document.activeElement instanceof HTMLElement) {
+            document.activeElement.blur();
+        }
+    }
+}
