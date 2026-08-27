@@ -33,5 +33,5 @@ export const copy = {
     lineDamage: 'Property Damage',
     lineLate: 'Missed Deadline Penalty',
     standingChange: 'Employment Standing',
-    controlsHint: 'W A S D thrust  ·  Arrows look  ·  Space confirm'
+    controlsHint: 'W A S D thrust  ·  Arrows look  ·  H headlight  ·  Space confirm'
 } as const;

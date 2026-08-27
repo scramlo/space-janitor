@@ -1,4 +1,6 @@
-import { Color, StandardMaterial } from 'playcanvas';
+import { Color, StandardMaterial, Vec2 } from 'playcanvas';
+
+import type { PbrMaps } from './textures.ts';
 
 export function createLitMaterial(r: number, g: number, b: number, options?: { metalness?: number; gloss?: number; emissive?: number }): StandardMaterial {
     const material = new StandardMaterial();
@@ -21,6 +23,35 @@ export function createUnlitMaterial(r: number, g: number, b: number, intensity =
     material.emissive = new Color(r, g, b);
     material.emissiveIntensity = intensity;
     material.diffuse.set(0, 0, 0);
+    material.update();
+    return material;
+}
+
+export function tilingForBox(sx: number, sy: number, sz: number, metersPerTile = 5): Vec2 {
+    if (sy <= sx && sy <= sz) {
+        return new Vec2(sx / metersPerTile, sz / metersPerTile);
+    }
+    if (sx <= sz) {
+        return new Vec2(sz / metersPerTile, sy / metersPerTile);
+    }
+    return new Vec2(sx / metersPerTile, sy / metersPerTile);
+}
+
+export function createRockMaterial(maps: PbrMaps | null, tiling: Vec2, tint = { r: 1, g: 1, b: 1 }): StandardMaterial {
+    const material = createLitMaterial(tint.r, tint.g, tint.b, {
+        metalness: 0.04,
+        gloss: maps ? 1 : 0.1
+    });
+    if (!maps) {
+        return material;
+    }
+    material.diffuseMap = maps.albedo;
+    material.normalMap = maps.normal;
+    material.glossMap = maps.roughness;
+    material.glossInvert = true;
+    material.diffuseMapTiling = tiling;
+    material.normalMapTiling = tiling;
+    material.glossMapTiling = tiling;
     material.update();
     return material;
 }

@@ -20,6 +20,7 @@ import { buildJobWorld } from '../world/buildJobWorld.ts';
 import { CollectionSystem } from '../world/CollectionSystem.ts';
 import { DebrisField } from '../world/DebrisField.ts';
 import type { ObstacleBox } from '../world/obstacles.ts';
+import type { WorldTextures } from '../world/textures.ts';
 
 import { GameScreen } from './screens.ts';
 import { createSession, ownsUpgrade } from './session.ts';
@@ -44,9 +45,11 @@ export class Game {
     private screen: GameScreen = GameScreen.Briefing;
     private payout: JobPayout | null = null;
     private confirmLock = 0.35;
+    private readonly textures: WorldTextures;
 
-    constructor(app: AppBase, uiHost: HTMLElement) {
+    constructor(app: AppBase, uiHost: HTMLElement, textures: WorldTextures = { rockWall: null }) {
         this.app = app;
+        this.textures = textures;
         this.session = loadSave();
         this.job = assignmentFor(this.session.jobsCompleted);
         this.ship = new ShipController(app, this.job.bounds);
@@ -72,6 +75,8 @@ export class Game {
         } else {
             this.setScreen(GameScreen.Briefing);
         }
+
+        window.addEventListener('keydown', this.onWindowKeyDown);
     }
 
     update(dt: number): void {
@@ -109,8 +114,32 @@ export class Game {
     }
 
     destroy(): void {
-        // Entities are destroyed with the application.
+        window.removeEventListener('keydown', this.onWindowKeyDown);
     }
+
+    setTextures(textures: WorldTextures): void {
+        this.textures.rockWall = textures.rockWall;
+        if (this.job.environment !== 'mining-facility') {
+            return;
+        }
+        this.worldRoot?.destroy();
+        const built = buildJobWorld(this.app, this.job, this.textures);
+        this.worldRoot = built.root;
+        this.obstacles = built.obstacles;
+        this.worldJobId = this.job.id;
+        this.ship.setObstacles(this.obstacles);
+        if (this.screen === GameScreen.Playing) {
+            this.debris.spawn(this.job, this.obstacles);
+        }
+    }
+
+    private readonly onWindowKeyDown = (event: globalThis.KeyboardEvent): void => {
+        if (event.repeat || event.code !== 'KeyH') {
+            return;
+        }
+        event.preventDefault();
+        this.ship.toggleHeadlight();
+    };
 
     private handleConfirmKeys(): void {
         const keyboard = this.app.keyboard;
@@ -212,7 +241,7 @@ export class Game {
         this.job = assignmentFor(this.session.jobsCompleted);
         if (this.worldJobId !== this.job.id) {
             this.worldRoot?.destroy();
-            const built = buildJobWorld(this.app, this.job);
+            const built = buildJobWorld(this.app, this.job, this.textures);
             this.worldRoot = built.root;
             this.obstacles = built.obstacles;
             this.worldJobId = this.job.id;

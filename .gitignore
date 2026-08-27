@@ -22,3 +22,6 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Source drops for extraction; runtime copies live in public/
+downloads/

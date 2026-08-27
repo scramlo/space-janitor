@@ -12,7 +12,7 @@ import {
     LIGHTFALLOFF_LINEAR,
     Vec3
 } from 'playcanvas';
-import type { AppBase, Keyboard } from 'playcanvas';
+import type { AppBase, Keyboard, LightComponent, StandardMaterial } from 'playcanvas';
 
 import { gameConfig } from '../config/gameConfig.ts';
 import type { JobBounds, JobStart } from '../config/jobs.ts';
@@ -44,6 +44,9 @@ export class ShipController {
     private obstacles: readonly ObstacleBox[] = [];
     private overlapping = false;
     private hits = 0;
+    private headlightOn = true;
+    private headlight: LightComponent | null = null;
+    private lampMat: StandardMaterial | null = null;
 
     constructor(app: AppBase, bounds: JobBounds) {
         this.app = app;
@@ -156,6 +159,16 @@ export class ShipController {
         this.entity.setPosition(this.position);
     }
 
+    toggleHeadlight(): void {
+        if (!this.headlight || !this.lampMat) {
+            return;
+        }
+        this.headlightOn = !this.headlightOn;
+        this.headlight.enabled = this.headlightOn;
+        this.lampMat.emissiveIntensity = this.headlightOn ? 1.1 : 0;
+        this.lampMat.update();
+    }
+
     private bounce(value: number, min: number, max: number, axis: 'x' | 'y' | 'z'): number {
         if (value < min) {
             this.velocity[axis] = Math.abs(this.velocity[axis]) * 0.25;
@@ -197,6 +210,7 @@ export class ShipController {
         visual.addChild(stripe);
 
         const lampMat = createLitMaterial(1, 0.92, 0.72, { metalness: 0.1, gloss: 0.5, emissive: 1.1 });
+        this.lampMat = lampMat;
         const lamp = createPrimitive('Headlamp', 'box', lampMat, { castShadows: false });
         lamp.setLocalScale(0.42, 0.16, 0.18);
         lamp.setLocalPosition(0, 0.12, -1.28);
@@ -227,5 +241,6 @@ export class ShipController {
         headlight.setLocalPosition(0, 0.22, -1.2);
         headlight.setLocalEulerAngles(82, 0, 0);
         visual.addChild(headlight);
+        this.headlight = headlight.light ?? null;
     }
 }

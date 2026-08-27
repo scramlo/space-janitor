@@ -4,37 +4,37 @@ import type { AppBase } from 'playcanvas';
 import type { JobDef } from '../config/jobs.ts';
 
 import type { BuiltWorld } from './buildBay.ts';
-import { createLitMaterial } from './materials.ts';
+import { createLitMaterial, createRockMaterial, tilingForBox } from './materials.ts';
 import { boxObstacle } from './obstacles.ts';
 import type { ObstacleBox } from './obstacles.ts';
 import { createPrimitive } from './primitives.ts';
 import { addStars } from './stars.ts';
+import type { PbrMaps } from './textures.ts';
 
-const floorMat = createLitMaterial(0.12, 0.09, 0.07, { metalness: 0.15, gloss: 0.12 });
-const rockMat = createLitMaterial(0.22, 0.16, 0.12, { metalness: 0.08, gloss: 0.1 });
 const rustMat = createLitMaterial(0.42, 0.22, 0.1, { metalness: 0.55, gloss: 0.28 });
 const steelMat = createLitMaterial(0.28, 0.3, 0.32, { metalness: 0.72, gloss: 0.38 });
 const oreMat = createLitMaterial(0.48, 0.28, 0.12, { metalness: 0.2, gloss: 0.18 });
 const crystalMat = createLitMaterial(0.62, 0.28, 0.92, { metalness: 0.08, gloss: 0.55, emissive: 1.35 });
 const crystalCoreMat = createLitMaterial(0.82, 0.45, 1, { metalness: 0.05, gloss: 0.7, emissive: 2.1 });
 
-export function buildMine(app: AppBase, job: JobDef): BuiltWorld {
+export function buildMine(app: AppBase, job: JobDef, rockWall: PbrMaps | null = null): BuiltWorld {
     const root = new Entity('MiningFacility');
     app.root.addChild(root);
     const obstacles: ObstacleBox[] = [];
+    const rockOf = rockMaterialFactory(rockWall);
 
-    const floor = createPrimitive('Floor', 'box', floorMat);
+    const floor = createPrimitive('Floor', 'box', rockOf(48, 0.5, 48));
     floor.setLocalScale(48, 0.5, 48);
     floor.setLocalPosition(0, -0.25, 0);
     root.addChild(floor);
 
-    addWall(root, obstacles, 'WallNegX', 1.2, 16, 46, -23, 8, 0);
-    addWall(root, obstacles, 'WallPosX', 1.2, 16, 46, 23, 8, 0);
-    addWall(root, obstacles, 'WallNegZ', 46, 16, 1.2, 0, 8, -23);
-    addWall(root, obstacles, 'WallPosZ', 18, 16, 1.2, -14, 8, 23);
-    addWall(root, obstacles, 'WallPosZRight', 18, 16, 1.2, 14, 8, 23);
+    addWall(root, obstacles, rockOf, 'WallNegX', 1.2, 16, 46, -23, 8, 0);
+    addWall(root, obstacles, rockOf, 'WallPosX', 1.2, 16, 46, 23, 8, 0);
+    addWall(root, obstacles, rockOf, 'WallNegZ', 46, 16, 1.2, 0, 8, -23);
+    addWall(root, obstacles, rockOf, 'WallPosZ', 18, 16, 1.2, -14, 8, 23);
+    addWall(root, obstacles, rockOf, 'WallPosZRight', 18, 16, 1.2, 14, 8, 23);
 
-    const ceiling = createPrimitive('Ceiling', 'box', rockMat);
+    const ceiling = createPrimitive('Ceiling', 'box', rockOf(48, 0.8, 48, { r: 0.85, g: 0.85, b: 0.88 }));
     ceiling.setLocalScale(48, 0.8, 48);
     ceiling.setLocalPosition(0, 16.2, 0);
     root.addChild(ceiling);
@@ -61,15 +61,31 @@ export function buildMine(app: AppBase, job: JobDef): BuiltWorld {
     addStars(root, 28);
     addLights(root);
 
-    app.scene.ambientLight = new Color(0.28, 0.18, 0.1);
+    app.scene.ambientLight = new Color(0.4, 0.28, 0.18);
 
     void job;
     return { root, obstacles };
 }
 
+function rockMaterialFactory(maps: PbrMaps | null) {
+    const cache = new Map<string, ReturnType<typeof createRockMaterial>>();
+    return (sx: number, sy: number, sz: number, tint?: { r: number; g: number; b: number }) => {
+        const tiling = tilingForBox(sx, sy, sz);
+        const key = `${tiling.x.toFixed(2)},${tiling.y.toFixed(2)},${tint?.r ?? 1},${tint?.g ?? 1},${tint?.b ?? 1}`;
+        const existing = cache.get(key);
+        if (existing) {
+            return existing;
+        }
+        const material = createRockMaterial(maps, tiling, tint);
+        cache.set(key, material);
+        return material;
+    };
+}
+
 function addWall(
     root: Entity,
     obstacles: ObstacleBox[],
+    rockOf: ReturnType<typeof rockMaterialFactory>,
     name: string,
     sx: number,
     sy: number,
@@ -78,7 +94,7 @@ function addWall(
     y: number,
     z: number
 ): void {
-    const wall = createPrimitive(name, 'box', rockMat);
+    const wall = createPrimitive(name, 'box', rockOf(sx, sy, sz));
     wall.setLocalScale(sx, sy, sz);
     wall.setLocalPosition(x, y, z);
     root.addChild(wall);
@@ -152,8 +168,8 @@ function addCrystal(
     glow.addComponent('light', {
         type: 'omni',
         color: new Color(0.72, 0.32, 1),
-        intensity: hanging ? 1.15 : 0.95,
-        range: hanging ? 14 : 11,
+        intensity: hanging ? 1.6 : 1.35,
+        range: hanging ? 18 : 15,
         castShadows: false
     });
     glow.setLocalPosition(0, hanging ? -1.6 : 1.1, 0);
@@ -170,8 +186,8 @@ function addLights(root: Entity): void {
     const key = new Entity('KeyLight');
     key.addComponent('light', {
         type: 'directional',
-        color: new Color(1, 0.72, 0.42),
-        intensity: 1.35,
+        color: new Color(1, 0.78, 0.52),
+        intensity: 2.4,
         castShadows: true,
         shadowDistance: 60,
         shadowResolution: 1024,
@@ -184,8 +200,8 @@ function addLights(root: Entity): void {
     const fill = new Entity('FillLight');
     fill.addComponent('light', {
         type: 'directional',
-        color: new Color(0.45, 0.62, 0.85),
-        intensity: 0.4,
+        color: new Color(0.5, 0.62, 0.82),
+        intensity: 0.95,
         castShadows: false
     });
     fill.setEulerAngles(210, 40, 0);
