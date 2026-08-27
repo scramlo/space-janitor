@@ -9,6 +9,7 @@ import {
     KEY_S,
     KEY_UP,
     KEY_W,
+    LIGHTFALLOFF_LINEAR,
     Vec3
 } from 'playcanvas';
 import type { AppBase, Keyboard } from 'playcanvas';
@@ -195,6 +196,12 @@ export class ShipController {
         stripe.setLocalPosition(0, 0.18, -0.2);
         visual.addChild(stripe);
 
+        const lampMat = createLitMaterial(1, 0.92, 0.72, { metalness: 0.1, gloss: 0.5, emissive: 1.1 });
+        const lamp = createPrimitive('Headlamp', 'box', lampMat, { castShadows: false });
+        lamp.setLocalScale(0.42, 0.16, 0.18);
+        lamp.setLocalPosition(0, 0.12, -1.28);
+        visual.addChild(lamp);
+
         const fill = new Entity('ShipFill');
         fill.addComponent('light', {
             type: 'omni',
@@ -205,5 +212,20 @@ export class ShipController {
         });
         fill.setLocalPosition(0, 0.6, 0);
         visual.addChild(fill);
+
+        const headlight = new Entity('Headlight');
+        headlight.addComponent('light', {
+            type: 'spot',
+            color: new Color(0.95, 0.92, 0.82),
+            intensity: gameConfig.ship.headlight.intensity,
+            range: gameConfig.ship.headlight.range,
+            innerConeAngle: gameConfig.ship.headlight.innerCone,
+            outerConeAngle: gameConfig.ship.headlight.outerCone,
+            falloffMode: LIGHTFALLOFF_LINEAR,
+            castShadows: false
+        });
+        headlight.setLocalPosition(0, 0.22, -1.2);
+        headlight.setLocalEulerAngles(82, 0, 0);
+        visual.addChild(headlight);
     }
 }

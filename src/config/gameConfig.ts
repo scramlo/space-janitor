@@ -17,7 +17,13 @@ export const gameConfig = {
         yawSpeed: 95,
         pitchSpeed: 70,
         maxPitch: 55,
-        radius: 1.15
+        radius: 1.15,
+        headlight: {
+            intensity: 16,
+            range: 36,
+            innerCone: 22,
+            outerCone: 48
+        }
     },
     camera: {
         distance: 9,
