@@ -35,10 +35,10 @@ export const gameConfig = {
         fov: 52,
         collisionPadding: 0.45,
         showcase: {
-            distance: 7,
-            height: 2.05,
+            distance: 8.5,
+            height: 2.4,
             yaw: 38,
-            frameShift: 2.35,
+            frameShift: 2.5,
             spinSpeed: 18
         }
     }

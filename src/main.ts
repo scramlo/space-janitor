@@ -1,5 +1,7 @@
 import { createApp } from './app/createApp.ts';
 import { Game } from './game/Game.ts';
+import { garbageTruckTuning } from './player/garbageTruckTuning.ts';
+import { loadContainer } from './world/loadContainer.ts';
 import { emptyWorldTextures, loadRockWallTextures, loadShipTextures } from './world/textures.ts';
 import './style.css';
 import './styles/overlay.css';
@@ -17,8 +19,13 @@ app.on('update', (dt: number) => game.update(dt));
 app.on('destroy', () => game.destroy());
 
 try {
-    const [rockWall, shipMaps] = await Promise.all([loadRockWallTextures(app), loadShipTextures(app)]);
+    const [rockWall, shipMaps, truck] = await Promise.all([
+        loadRockWallTextures(app),
+        loadShipTextures(app),
+        loadContainer(app, garbageTruckTuning.url)
+    ]);
     game.setTextures({ rockWall, ...shipMaps });
+    game.setTruckModel(truck);
 } catch (error) {
-    console.error('World textures failed to load', error);
+    console.error('World assets failed to load', error);
 }

@@ -1,5 +1,5 @@
 import { KEY_ENTER, KEY_SPACE  } from 'playcanvas';
-import type { AppBase } from 'playcanvas';
+import type { AppBase, Asset } from 'playcanvas';
 
 import { playCollectBlip } from '../audio/blip.ts';
 import { gameConfig } from '../config/gameConfig.ts';
@@ -122,6 +122,11 @@ export class Game {
 
     destroy(): void {
         window.removeEventListener('keydown', this.onWindowKeyDown);
+    }
+
+    setTruckModel(asset: Asset): void {
+        this.ship.setTruckAsset(asset);
+        this.camera.snap();
     }
 
     setTextures(textures: WorldTextures): void {

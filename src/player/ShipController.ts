@@ -12,26 +12,22 @@ import {
     LIGHTFALLOFF_LINEAR,
     Vec3
 } from 'playcanvas';
-import type { AppBase, Keyboard, LightComponent, StandardMaterial } from 'playcanvas';
+import type { AppBase, Asset, Keyboard, LightComponent, StandardMaterial } from 'playcanvas';
 
 import { gameConfig } from '../config/gameConfig.ts';
 import type { JobBounds, JobStart } from '../config/jobs.ts';
-import { createLitMaterial, createPbrMaterial, tilingForBox } from '../world/materials.ts';
+import { createLitMaterial } from '../world/materials.ts';
+import { containerResource } from '../world/loadContainer.ts';
 import { resolveSphereObstacles } from '../world/obstacles.ts';
 import type { ObstacleBox } from '../world/obstacles.ts';
 import { createPrimitive } from '../world/primitives.ts';
 import type { WorldTextures } from '../world/textures.ts';
 
-const bodyFallback = createLitMaterial(0.42, 0.38, 0.34, { metalness: 0.72, gloss: 0.38 });
-const cargoFallback = createLitMaterial(0.32, 0.4, 0.36, { metalness: 0.55, gloss: 0.28 });
-const suckerFallback = createLitMaterial(0.82, 0.8, 0.74, { metalness: 0.02, gloss: 0.12 });
-const wheelFallback = createLitMaterial(0.07, 0.07, 0.08, { metalness: 0.04, gloss: 0.12 });
+import { garbageTruckTuning } from './garbageTruckTuning.ts';
 
-const bodySize = { sx: 0.92, sy: 0.7, sz: 0.68 };
-const cargoSize = { sx: 1.38, sy: 1.18, sz: 1.95 };
-const suckerSize = { sx: 0.88, sy: 0.85, sz: 0.88 };
-const wheelSize = { diameter: 0.56, thickness: 0.2 };
-const cabCargoJoint = 0.46;
+const fallbackMat = createLitMaterial(0.42, 0.38, 0.34, { metalness: 0.55, gloss: 0.35 });
+const orangeMat = createLitMaterial(0.85, 0.35, 0.08, { metalness: 0.2, gloss: 0.4 });
+const hopperMat = createLitMaterial(0.32, 0.36, 0.38, { metalness: 0.4, gloss: 0.3 });
 
 export class ShipController {
     readonly entity: Entity;
@@ -57,12 +53,10 @@ export class ShipController {
     private headlight: LightComponent | null = null;
     private lampMat: StandardMaterial | null = null;
     private visual!: Entity;
-    private body: Entity | null = null;
-    private cargo: Entity | null = null;
-    private sucker: Entity | null = null;
+    private modelRoot: Entity | null = null;
     private showcasing = false;
     private showcaseYaw = 0;
-    private readonly wheels: { pivot: Entity; mesh: Entity }[] = [];
+    private readonly wheels: Entity[] = [];
 
     constructor(app: AppBase, bounds: JobBounds) {
         this.app = app;
@@ -86,45 +80,35 @@ export class ShipController {
         this.overlapping = false;
     }
 
-    setTextures(textures: WorldTextures): void {
-        if (this.body) {
-            assignMaterial(
-                this.body,
-                createPbrMaterial(textures.rustyMetal, tilingForBox(bodySize.sx, bodySize.sy, bodySize.sz, 0.7), {
-                    metalness: textures.rustyMetal?.metalness ? 1 : 0.72,
-                    gloss: textures.rustyMetal ? 1 : 0.38
-                })
-            );
+    setTextures(_textures: WorldTextures): void {
+        // GLB materials are authored in Blender; primitive fallback keeps its lit mats.
+    }
+
+    setTruckAsset(asset: Asset): void {
+        if (this.modelRoot) {
+            this.modelRoot.destroy();
+            this.modelRoot = null;
         }
-        if (this.cargo) {
-            assignMaterial(
-                this.cargo,
-                createPbrMaterial(textures.rustyMetalGrid, tilingForBox(cargoSize.sx, cargoSize.sy, cargoSize.sz, 0.85), {
-                    metalness: 0.58,
-                    gloss: textures.rustyMetalGrid ? 1 : 0.28
-                })
-            );
-        }
-        if (this.sucker) {
-            assignMaterial(
-                this.sucker,
-                createPbrMaterial(textures.polystyrene, tilingForBox(suckerSize.sx, suckerSize.sy, suckerSize.sz, 0.55), {
-                    metalness: 0.02,
-                    gloss: textures.polystyrene ? 1 : 0.12
-                })
-            );
-        }
-        const wheelMat = createPbrMaterial(
-            textures.rubberTiles,
-            tilingForBox(wheelSize.diameter, wheelSize.thickness, wheelSize.diameter, 0.35),
-            {
-                metalness: 0.02,
-                gloss: textures.rubberTiles ? 1 : 0.12
+        for (const child of [...this.visual.children]) {
+            if (child.name === 'ShipFill' || child.name === 'Headlight' || child.name === 'Headlamp') {
+                continue;
             }
-        );
-        for (const wheel of this.wheels) {
-            assignMaterial(wheel.mesh, wheelMat);
+            child.destroy();
         }
+        this.wheels.length = 0;
+
+        const t = garbageTruckTuning;
+        const yaw = new Entity('TruckYaw');
+        yaw.setLocalEulerAngles(0, t.yaw, 0);
+        const model = containerResource(asset).instantiateRenderEntity({ castShadows: true });
+        model.name = 'GarbageTruckModel';
+        model.setLocalScale(t.scale, t.scale, t.scale);
+        model.setLocalPosition(-t.center[0] * t.scale, t.y, -t.center[2] * t.scale);
+        yaw.addChild(model);
+        this.visual.addChild(yaw);
+        this.modelRoot = yaw;
+
+        // Wheel steer is authored into the GLB rest pose; skip runtime yaw until pivots exist.
     }
 
     setMultipliers(thrust: number, maxSpeed: number): void {
@@ -205,7 +189,7 @@ export class ShipController {
 
     private applySteerPose(): void {
         for (const wheel of this.wheels) {
-            wheel.pivot.setLocalEulerAngles(0, this.steer, 0);
+            wheel.setLocalEulerAngles(0, this.steer, 90);
         }
     }
 
@@ -277,56 +261,47 @@ export class ShipController {
     private buildVisual(): void {
         this.visual = new Entity('ShipVisual');
         this.entity.addChild(this.visual);
+        this.buildPrimitiveFallback();
+        this.attachLights();
+    }
+
+    private buildPrimitiveFallback(): void {
         const visual = this.visual;
+        const cab = createPrimitive('Cab', 'box', fallbackMat);
+        cab.setLocalScale(1.1, 0.85, 1.0);
+        cab.setLocalPosition(0, 0.15, -0.2);
+        visual.addChild(cab);
 
-        const bodyZ = cabCargoJoint - bodySize.sz * 0.5;
-        const cargoZ = cabCargoJoint + cargoSize.sz * 0.5;
-        const cabFront = cabCargoJoint - bodySize.sz;
+        const hopper = createPrimitive('Hopper', 'box', hopperMat);
+        hopper.setLocalScale(1.25, 1.1, 1.5);
+        hopper.setLocalPosition(0, 0.35, 1.15);
+        visual.addChild(hopper);
 
-        const body = createPrimitive('Body', 'box', bodyFallback);
-        body.setLocalScale(bodySize.sx, bodySize.sy, bodySize.sz);
-        body.setLocalPosition(0, 0, bodyZ);
-        visual.addChild(body);
-        this.body = body;
+        const intake = createPrimitive('Intake', 'cone', orangeMat);
+        intake.setLocalScale(1.1, 1.0, 1.1);
+        intake.setLocalPosition(0, 0.1, -1.35);
+        intake.setLocalEulerAngles(90, 0, 0);
+        visual.addChild(intake);
+    }
 
-        const cargo = createPrimitive('Cargo', 'box', cargoFallback);
-        cargo.setLocalScale(cargoSize.sx, cargoSize.sy, cargoSize.sz);
-        cargo.setLocalPosition(0, 0.28, cargoZ);
-        visual.addChild(cargo);
-        this.cargo = cargo;
-
-        const sucker = createPrimitive('Sucker', 'cone', suckerFallback);
-        sucker.setLocalScale(suckerSize.sx, suckerSize.sy, suckerSize.sz);
-        sucker.setLocalPosition(0, 0, cabFront - 0.445);
-        sucker.setLocalEulerAngles(90, 0, 0);
-        visual.addChild(sucker);
-        this.sucker = sucker;
-
-        const frontTrack = bodySize.sx * 0.5 + wheelSize.thickness * 0.35;
-        const rearTrack = cargoSize.sx * 0.5 + wheelSize.thickness * 0.15;
-        this.wheels.push(
-            addWheel(visual, 'WheelFL', -frontTrack, -0.38, bodyZ - bodySize.sz * 0.22),
-            addWheel(visual, 'WheelFR', frontTrack, -0.38, bodyZ - bodySize.sz * 0.22),
-            addWheel(visual, 'WheelRL', -rearTrack, -0.38, cargoZ + cargoSize.sz * 0.14),
-            addWheel(visual, 'WheelRR', rearTrack, -0.38, cargoZ + cargoSize.sz * 0.14)
-        );
-
+    private attachLights(): void {
+        const visual = this.visual;
         const lampMat = createLitMaterial(1, 0.92, 0.72, { metalness: 0.1, gloss: 0.5, emissive: 1.1 });
         this.lampMat = lampMat;
         const lamp = createPrimitive('Headlamp', 'box', lampMat, { castShadows: false });
-        lamp.setLocalScale(0.36, 0.14, 0.16);
-        lamp.setLocalPosition(0, 0.2, cabFront - 0.775);
+        lamp.setLocalScale(0.28, 0.12, 0.14);
+        lamp.setLocalPosition(0, 0.35, -1.85);
         visual.addChild(lamp);
 
         const fill = new Entity('ShipFill');
         fill.addComponent('light', {
             type: 'omni',
             color: new Color(1, 0.92, 0.55),
-            intensity: 0.35,
-            range: 8,
+            intensity: 0.4,
+            range: 10,
             castShadows: false
         });
-        fill.setLocalPosition(0, 0.7, 0.2);
+        fill.setLocalPosition(0, 0.9, 0.2);
         visual.addChild(fill);
 
         const headlight = new Entity('Headlight');
@@ -340,30 +315,10 @@ export class ShipController {
             falloffMode: LIGHTFALLOFF_LINEAR,
             castShadows: false
         });
-        headlight.setLocalPosition(0, 0.12, cabFront - 0.745);
+        headlight.setLocalPosition(0, 0.25, -1.9);
         headlight.setLocalEulerAngles(82, 0, 0);
         visual.addChild(headlight);
         this.headlight = headlight.light ?? null;
     }
 }
 
-function addWheel(parent: Entity, name: string, x: number, y: number, z: number): { pivot: Entity; mesh: Entity } {
-    const pivot = new Entity(name);
-    pivot.setLocalPosition(x, y, z);
-    parent.addChild(pivot);
-    const mesh = createPrimitive(`${name}_Mesh`, 'cylinder', wheelFallback);
-    mesh.setLocalScale(wheelSize.diameter, wheelSize.thickness, wheelSize.diameter);
-    mesh.setLocalEulerAngles(0, 0, 90);
-    pivot.addChild(mesh);
-    return { pivot, mesh };
-}
-
-function assignMaterial(entity: Entity, material: StandardMaterial): void {
-    const render = entity.render;
-    if (!render) {
-        return;
-    }
-    for (const meshInstance of render.meshInstances) {
-        meshInstance.material = material;
-    }
-}
