@@ -1,8 +1,11 @@
-import { Entity, Vec3  } from 'playcanvas';
-import type { AppBase } from 'playcanvas';
+import { Entity, Vec3 } from 'playcanvas';
+import type { AppBase, Asset } from 'playcanvas';
 
 import type { JobDef } from '../config/jobs.ts';
 
+import { foodCollectRadius, foodDebrisCatalog } from './foodDebrisTuning.ts';
+import type { FoodDebrisTuning } from './foodDebrisTuning.ts';
+import { containerResource } from './loadContainer.ts';
 import { createLitMaterial } from './materials.ts';
 import { pointInsideObstacle } from './obstacles.ts';
 import type { ObstacleBox } from './obstacles.ts';
@@ -37,52 +40,24 @@ export class DebrisField {
     readonly pieces: DebrisPiece[] = [];
 
     private readonly root: Entity;
+    private foodById = new Map<string, Asset>();
 
     constructor(app: AppBase) {
         this.root = new Entity('DebrisField');
         app.root.addChild(this.root);
     }
 
+    setFoodAssets(assets: ReadonlyMap<string, Asset>): void {
+        this.foodById = new Map(assets);
+    }
+
     spawn(job: JobDef, obstacles: readonly ObstacleBox[] = []): void {
         this.clear();
-        const start = job.start;
-        const { min, max } = job.bounds;
-        const margin = job.debris.innerMargin;
-        const palette = job.environment === 'mining-facility' ? orePalette : scrapPalette;
-
-        for (let i = 0; i < job.debrisCount; i++) {
-            const radius = lerp(job.debris.minRadius, job.debris.maxRadius, Math.random());
-            let x = 0;
-            let y = 0;
-            let z = 0;
-            let attempts = 0;
-            do {
-                x = lerp(min.x + margin, max.x - margin, Math.random());
-                y = lerp(min.y + 0.4, max.y - 1.5, Math.random());
-                z = lerp(min.z + margin, max.z - margin, Math.random());
-                attempts += 1;
-            } while (
-                attempts < 40 &&
-                (distanceSq(x, y, z, start.x, start.y, start.z) < 36 ||
-                    pointInsideObstacle(x, y, z, obstacles, radius + 0.4))
-            );
-
-            const type = Math.random() > 0.45 ? 'sphere' : 'box';
-            const material = palette[i % palette.length] ?? palette[0];
-            const entity = createPrimitive(`Debris_${i}`, type, material);
-            const scale = radius * 2;
-            entity.setLocalScale(type === 'box' ? scale * (0.7 + Math.random() * 0.5) : scale, scale, scale);
-            entity.setPosition(x, y, z);
-            entity.setEulerAngles(Math.random() * 360, Math.random() * 360, Math.random() * 360);
-            this.root.addChild(entity);
-
-            this.pieces.push({
-                entity,
-                radius,
-                collected: false,
-                spin: new Vec3((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 50, (Math.random() - 0.5) * 40)
-            });
+        if (job.environment === 'space-burger' && this.foodById.size > 0) {
+            this.spawnFood(job, obstacles);
+            return;
         }
+        this.spawnPrimitives(job, obstacles);
     }
 
     spin(dt: number): void {
@@ -114,6 +89,101 @@ export class DebrisField {
             piece.entity.destroy();
         }
         this.pieces.length = 0;
+    }
+
+    private spawnFood(job: JobDef, obstacles: readonly ObstacleBox[]): void {
+        const catalog = foodDebrisCatalog.filter((item) => this.foodById.has(item.id));
+        if (catalog.length === 0) {
+            this.spawnPrimitives(job, obstacles);
+            return;
+        }
+
+        for (let i = 0; i < job.debrisCount; i++) {
+            const tuning = catalog[i % catalog.length]!;
+            const asset = this.foodById.get(tuning.id)!;
+            const radius = foodCollectRadius(tuning);
+            const pos = this.pickSpawnPoint(job, obstacles, radius);
+            if (!pos) {
+                continue;
+            }
+
+            const entity = this.createFoodEntity(i, asset, tuning);
+            entity.setPosition(pos.x, pos.y, pos.z);
+            entity.setEulerAngles(Math.random() * 360, Math.random() * 360, Math.random() * 360);
+            this.root.addChild(entity);
+
+            this.pieces.push({
+                entity,
+                radius,
+                collected: false,
+                spin: new Vec3((Math.random() - 0.5) * 35, (Math.random() - 0.5) * 45, (Math.random() - 0.5) * 35)
+            });
+        }
+    }
+
+    private createFoodEntity(index: number, asset: Asset, tuning: FoodDebrisTuning): Entity {
+        const root = new Entity(`Food_${tuning.id}_${index}`);
+        const model = containerResource(asset).instantiateRenderEntity({ castShadows: true });
+        const s = tuning.scale;
+        model.name = `FoodModel_${tuning.id}`;
+        model.setLocalScale(s, s, s);
+        // Center the mesh on the gameplay root so floating debris collects cleanly.
+        model.setLocalPosition(-tuning.center[0] * s, -tuning.center[1] * s, -tuning.center[2] * s);
+        root.addChild(model);
+        return root;
+    }
+
+    private spawnPrimitives(job: JobDef, obstacles: readonly ObstacleBox[]): void {
+        const palette = job.environment === 'mining-facility' ? orePalette : scrapPalette;
+
+        for (let i = 0; i < job.debrisCount; i++) {
+            const radius = lerp(job.debris.minRadius, job.debris.maxRadius, Math.random());
+            const pos = this.pickSpawnPoint(job, obstacles, radius);
+            if (!pos) {
+                continue;
+            }
+
+            const type = Math.random() > 0.45 ? 'sphere' : 'box';
+            const material = palette[i % palette.length] ?? palette[0];
+            const entity = createPrimitive(`Debris_${i}`, type, material);
+            const scale = radius * 2;
+            entity.setLocalScale(type === 'box' ? scale * (0.7 + Math.random() * 0.5) : scale, scale, scale);
+            entity.setPosition(pos.x, pos.y, pos.z);
+            entity.setEulerAngles(Math.random() * 360, Math.random() * 360, Math.random() * 360);
+            this.root.addChild(entity);
+
+            this.pieces.push({
+                entity,
+                radius,
+                collected: false,
+                spin: new Vec3((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 50, (Math.random() - 0.5) * 40)
+            });
+        }
+    }
+
+    private pickSpawnPoint(
+        job: JobDef,
+        obstacles: readonly ObstacleBox[],
+        radius: number
+    ): { x: number; y: number; z: number } | null {
+        const start = job.start;
+        const { min, max } = job.bounds;
+        const margin = job.debris.innerMargin;
+        let x = 0;
+        let y = 0;
+        let z = 0;
+        let attempts = 0;
+        do {
+            x = lerp(min.x + margin, max.x - margin, Math.random());
+            y = lerp(min.y + 0.4, max.y - 1.5, Math.random());
+            z = lerp(min.z + margin, max.z - margin, Math.random());
+            attempts += 1;
+        } while (
+            attempts < 40 &&
+            (distanceSq(x, y, z, start.x, start.y, start.z) < 36 ||
+                pointInsideObstacle(x, y, z, obstacles, radius + 0.4))
+        );
+        return { x, y, z };
     }
 }
 

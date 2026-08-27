@@ -159,6 +159,10 @@ export class Game {
         this.camera.snap();
     }
 
+    setFoodAssets(assets: ReadonlyMap<string, Asset>): void {
+        this.debris.setFoodAssets(assets);
+    }
+
     setTextures(textures: WorldTextures): void {
         this.textures.rockWall = textures.rockWall;
         this.textures.rustyMetal = textures.rustyMetal;
