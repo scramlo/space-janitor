@@ -1,10 +1,11 @@
 import { Entity, Vec3  } from 'playcanvas';
 import type { AppBase } from 'playcanvas';
 
-import { gameConfig } from '../config/gameConfig.ts';
 import type { JobDef } from '../config/jobs.ts';
 
 import { createLitMaterial } from './materials.ts';
+import { pointInsideObstacle } from './obstacles.ts';
+import type { ObstacleBox } from './obstacles.ts';
 import { createPrimitive } from './primitives.ts';
 
 export type DebrisPiece = {
@@ -14,13 +15,22 @@ export type DebrisPiece = {
     spin: Vec3;
 };
 
-const palette = [
+const scrapPalette = [
     createLitMaterial(0.55, 0.42, 0.22, { metalness: 0.1, gloss: 0.2 }),
     createLitMaterial(0.32, 0.38, 0.28, { metalness: 0.05, gloss: 0.15 }),
     createLitMaterial(0.45, 0.22, 0.16, { metalness: 0.2, gloss: 0.25 }),
     createLitMaterial(0.22, 0.4, 0.42, { metalness: 0.15, gloss: 0.4, emissive: 0.08 }),
     createLitMaterial(0.5, 0.5, 0.48, { metalness: 0.55, gloss: 0.45 }),
     createLitMaterial(0.62, 0.55, 0.32, { metalness: 0.08, gloss: 0.18 })
+];
+
+const orePalette = [
+    createLitMaterial(0.48, 0.28, 0.1, { metalness: 0.18, gloss: 0.16 }),
+    createLitMaterial(0.32, 0.2, 0.12, { metalness: 0.08, gloss: 0.12 }),
+    createLitMaterial(0.58, 0.4, 0.16, { metalness: 0.35, gloss: 0.28 }),
+    createLitMaterial(0.22, 0.22, 0.24, { metalness: 0.6, gloss: 0.35 }),
+    createLitMaterial(0.4, 0.16, 0.08, { metalness: 0.12, gloss: 0.14, emissive: 0.05 }),
+    createLitMaterial(0.7, 0.55, 0.28, { metalness: 0.22, gloss: 0.2 })
 ];
 
 export class DebrisField {
@@ -33,11 +43,12 @@ export class DebrisField {
         app.root.addChild(this.root);
     }
 
-    spawn(job: JobDef): void {
+    spawn(job: JobDef, obstacles: readonly ObstacleBox[] = []): void {
         this.clear();
-        const start = gameConfig.ship.start;
+        const start = job.start;
         const { min, max } = job.bounds;
         const margin = job.debris.innerMargin;
+        const palette = job.environment === 'mining-facility' ? orePalette : scrapPalette;
 
         for (let i = 0; i < job.debrisCount; i++) {
             const radius = lerp(job.debris.minRadius, job.debris.maxRadius, Math.random());
@@ -50,7 +61,11 @@ export class DebrisField {
                 y = lerp(min.y + 0.4, max.y - 1.5, Math.random());
                 z = lerp(min.z + margin, max.z - margin, Math.random());
                 attempts += 1;
-            } while (attempts < 20 && distanceSq(x, y, z, start.x, start.y, start.z) < 36);
+            } while (
+                attempts < 40 &&
+                (distanceSq(x, y, z, start.x, start.y, start.z) < 36 ||
+                    pointInsideObstacle(x, y, z, obstacles, radius + 0.4))
+            );
 
             const type = Math.random() > 0.45 ? 'sphere' : 'box';
             const material = palette[i % palette.length] ?? palette[0];

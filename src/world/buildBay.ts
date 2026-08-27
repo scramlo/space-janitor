@@ -1,20 +1,28 @@
-import { Color, Entity  } from 'playcanvas';
+import { Color, Entity } from 'playcanvas';
 import type { AppBase } from 'playcanvas';
 
 import type { JobDef } from '../config/jobs.ts';
 
-import { createLitMaterial, createUnlitMaterial } from './materials.ts';
+import { createLitMaterial } from './materials.ts';
+import { boxObstacle } from './obstacles.ts';
+import type { ObstacleBox } from './obstacles.ts';
 import { createPrimitive } from './primitives.ts';
+import { addStars } from './stars.ts';
+
+export type BuiltWorld = {
+    root: Entity;
+    obstacles: ObstacleBox[];
+};
 
 const floorMat = createLitMaterial(0.09, 0.1, 0.12, { metalness: 0.4, gloss: 0.2 });
 const wallMat = createLitMaterial(0.16, 0.18, 0.2, { metalness: 0.55, gloss: 0.25 });
 const stripeMat = createLitMaterial(0.78, 0.62, 0.12, { metalness: 0.1, gloss: 0.2, emissive: 0.08 });
 const structureMat = createLitMaterial(0.22, 0.24, 0.28, { metalness: 0.7, gloss: 0.4 });
-const starMat = createUnlitMaterial(0.85, 0.9, 1, 1.4);
 
-export function buildBay(app: AppBase, job: JobDef): Entity {
+export function buildBay(app: AppBase, job: JobDef): BuiltWorld {
     const root = new Entity('DockingBay');
     app.root.addChild(root);
+    const obstacles: ObstacleBox[] = [];
 
     const floor = createPrimitive('Floor', 'box', floorMat);
     floor.setLocalScale(42, 0.4, 42);
@@ -41,6 +49,7 @@ export function buildBay(app: AppBase, job: JobDef): Entity {
         pillar.setLocalScale(1.2, 16, 1.2);
         pillar.setLocalPosition(x, 8, z);
         root.addChild(pillar);
+        obstacles.push(boxObstacle(x, 8, z, 1.2, 16, 1.2));
     }
 
     for (let i = -3; i <= 3; i++) {
@@ -55,19 +64,21 @@ export function buildBay(app: AppBase, job: JobDef): Entity {
     crate.setLocalScale(3.2, 2.2, 2.4);
     crate.setLocalPosition(-14, 1.1, -14);
     root.addChild(crate);
+    obstacles.push(boxObstacle(-14, 1.1, -14, 3.2, 2.2, 2.4));
 
     const tank = createPrimitive('StaticTank', 'cylinder', structureMat);
     tank.setLocalScale(2.4, 3.2, 2.4);
     tank.setLocalPosition(14, 1.6, -13);
     root.addChild(tank);
+    obstacles.push(boxObstacle(14, 1.6, -13, 2.4, 3.2, 2.4));
 
     addStars(root);
-    addLights(app, root);
+    addLights(root);
 
     app.scene.ambientLight = new Color(0.16, 0.18, 0.24);
 
     void job;
-    return root;
+    return { root, obstacles };
 }
 
 function addGirder(root: Entity, name: string, sx: number, sy: number, sz: number, x: number, y: number, z: number): void {
@@ -77,7 +88,7 @@ function addGirder(root: Entity, name: string, sx: number, sy: number, sz: numbe
     root.addChild(beam);
 }
 
-function addLights(app: AppBase, root: Entity): void {
+function addLights(root: Entity): void {
     const key = new Entity('KeyLight');
     key.addComponent('light', {
         type: 'directional',
@@ -101,24 +112,4 @@ function addLights(app: AppBase, root: Entity): void {
     });
     fill.setEulerAngles(200, -20, 0);
     root.addChild(fill);
-
-    void app;
-}
-
-function addStars(root: Entity): void {
-    const stars = new Entity('Stars');
-    root.addChild(stars);
-    for (let i = 0; i < 48; i++) {
-        const star = createPrimitive(`Star_${i}`, 'sphere', starMat, { castShadows: false, receiveShadows: false });
-        const radius = 70 + Math.random() * 40;
-        const theta = Math.random() * Math.PI * 2;
-        const phi = Math.acos(2 * Math.random() - 1);
-        const x = radius * Math.sin(phi) * Math.cos(theta);
-        const y = Math.abs(radius * Math.cos(phi)) + 8;
-        const z = radius * Math.sin(phi) * Math.sin(theta);
-        const scale = 0.18 + Math.random() * 0.35;
-        star.setLocalScale(scale, scale, scale);
-        star.setLocalPosition(x, y, z);
-        stars.addChild(star);
-    }
 }

@@ -3,7 +3,8 @@ import type { AppBase } from 'playcanvas';
 
 import { playCollectBlip } from '../audio/blip.ts';
 import { gameConfig } from '../config/gameConfig.ts';
-import { currentJob } from '../config/jobs.ts';
+import { assignmentFor } from '../config/jobs.ts';
+import type { JobDef } from '../config/jobs.ts';
 import { thrusterUpgrade } from '../config/upgrades.ts';
 import { clearSave, loadSave, writeSave } from '../persist/save.ts';
 import { CameraController } from '../player/CameraController.ts';
@@ -15,9 +16,10 @@ import { JobSystem } from '../systems/JobSystem.ts';
 import { Timer } from '../systems/Timer.ts';
 import { canPurchase, movementMultipliers, purchaseUpgrade } from '../systems/UpgradeSystem.ts';
 import { GameUI } from '../ui/GameUI.ts';
-import { buildBay } from '../world/buildBay.ts';
+import { buildJobWorld } from '../world/buildJobWorld.ts';
 import { CollectionSystem } from '../world/CollectionSystem.ts';
 import { DebrisField } from '../world/DebrisField.ts';
+import type { ObstacleBox } from '../world/obstacles.ts';
 
 import { GameScreen } from './screens.ts';
 import { createSession, ownsUpgrade } from './session.ts';
@@ -34,6 +36,11 @@ export class Game {
     private readonly ui: GameUI;
 
     private session: GameSession;
+    private job: JobDef;
+    private worldJobId: string | null = null;
+    private worldRoot: { destroy(): void } | null = null;
+    private obstacles: readonly ObstacleBox[] = [];
+    private propertyDamage = 0;
     private screen: GameScreen = GameScreen.Briefing;
     private payout: JobPayout | null = null;
     private confirmLock = 0.35;
@@ -41,9 +48,8 @@ export class Game {
     constructor(app: AppBase, uiHost: HTMLElement) {
         this.app = app;
         this.session = loadSave();
-        const job = currentJob();
-        buildBay(app, job);
-        this.ship = new ShipController(app, job.bounds);
+        this.job = assignmentFor(this.session.jobsCompleted);
+        this.ship = new ShipController(app, this.job.bounds);
         this.camera = new CameraController(app, this.ship.entity);
         this.debris = new DebrisField(app);
         this.collection = new CollectionSystem();
@@ -57,9 +63,7 @@ export class Game {
             onRestart: () => this.newCareer()
         });
         this.applyUpgrades();
-        this.debris.spawn(job);
-        this.ship.reset();
-        this.camera.snap();
+        this.loadAssignment();
 
         if (this.session.outcome === 'victory') {
             this.setScreen(GameScreen.Victory);
@@ -87,6 +91,10 @@ export class Game {
         if (collected > 0) {
             this.jobSystem.noteCollected(collected);
             playCollectBlip();
+        }
+        const hits = this.ship.consumeHits();
+        if (hits > 0) {
+            this.propertyDamage = Math.min(120, this.propertyDamage + hits * 20);
         }
         this.timer.update(clamped);
         this.ui.renderHud(this.hudSnapshot());
@@ -139,10 +147,11 @@ export class Game {
         if (this.screen !== GameScreen.Briefing) {
             return;
         }
-        const job = currentJob();
+        const job = this.job;
         this.ship.reset();
         this.applyUpgrades();
-        this.debris.spawn(job);
+        this.propertyDamage = 0;
+        this.debris.spawn(job, this.obstacles);
         this.jobSystem.start(job.debrisCount);
         this.timer.start(job.deadlineSeconds);
         this.camera.snap();
@@ -153,7 +162,7 @@ export class Game {
     private finishJob(success: boolean): void {
         this.jobSystem.stop();
         this.timer.stop();
-        this.payout = settleJob(currentJob(), success, this.timer.remaining, this.session);
+        this.payout = settleJob(this.job, success, this.timer.remaining, this.session, this.propertyDamage);
         writeSave(this.session);
         this.setScreen(GameScreen.Results);
     }
@@ -195,11 +204,25 @@ export class Game {
     }
 
     private enterBriefing(): void {
-        const job = currentJob();
-        this.ship.reset();
-        this.debris.spawn(job);
-        this.camera.snap();
+        this.loadAssignment();
         this.setScreen(GameScreen.Briefing);
+    }
+
+    private loadAssignment(): void {
+        this.job = assignmentFor(this.session.jobsCompleted);
+        if (this.worldJobId !== this.job.id) {
+            this.worldRoot?.destroy();
+            const built = buildJobWorld(this.app, this.job);
+            this.worldRoot = built.root;
+            this.obstacles = built.obstacles;
+            this.worldJobId = this.job.id;
+            this.ship.setObstacles(this.obstacles);
+        }
+        this.ship.setBounds(this.job.bounds);
+        this.ship.setStart(this.job.start);
+        this.ship.reset();
+        this.debris.spawn(this.job, this.obstacles);
+        this.camera.snap();
     }
 
     private newCareer(): void {
@@ -219,7 +242,7 @@ export class Game {
         this.screen = screen;
         this.confirmLock = 0.35;
         this.ui.show(screen, {
-            job: currentJob(),
+            job: this.job,
             session: this.session,
             payout: this.payout,
             upgrade: thrusterUpgrade(),

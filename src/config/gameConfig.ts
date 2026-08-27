@@ -17,8 +17,7 @@ export const gameConfig = {
         yawSpeed: 95,
         pitchSpeed: 70,
         maxPitch: 55,
-        radius: 1.15,
-        start: { x: 0, y: 5, z: 12 }
+        radius: 1.15
     },
     camera: {
         distance: 9,

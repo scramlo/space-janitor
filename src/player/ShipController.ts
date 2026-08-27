@@ -10,14 +10,14 @@ import {
     KEY_UP,
     KEY_W,
     Vec3
-    
-    
 } from 'playcanvas';
 import type { AppBase, Keyboard } from 'playcanvas';
 
 import { gameConfig } from '../config/gameConfig.ts';
-import type { JobBounds } from '../config/jobs.ts';
+import type { JobBounds, JobStart } from '../config/jobs.ts';
 import { createLitMaterial } from '../world/materials.ts';
+import { resolveSphereObstacles } from '../world/obstacles.ts';
+import type { ObstacleBox } from '../world/obstacles.ts';
 import { createPrimitive } from '../world/primitives.ts';
 
 const hullMat = createLitMaterial(0.86, 0.74, 0.18, { metalness: 0.35, gloss: 0.45 });
@@ -39,6 +39,10 @@ export class ShipController {
     private thrustMul = 1;
     private speedMul = 1;
     private bounds: JobBounds;
+    private start: JobStart = { x: 0, y: 5, z: 12 };
+    private obstacles: readonly ObstacleBox[] = [];
+    private overlapping = false;
+    private hits = 0;
 
     constructor(app: AppBase, bounds: JobBounds) {
         this.app = app;
@@ -53,16 +57,33 @@ export class ShipController {
         this.bounds = bounds;
     }
 
+    setStart(start: JobStart): void {
+        this.start = start;
+    }
+
+    setObstacles(obstacles: readonly ObstacleBox[]): void {
+        this.obstacles = obstacles;
+        this.overlapping = false;
+    }
+
     setMultipliers(thrust: number, maxSpeed: number): void {
         this.thrustMul = thrust;
         this.speedMul = maxSpeed;
+    }
+
+    consumeHits(): number {
+        const count = this.hits;
+        this.hits = 0;
+        return count;
     }
 
     reset(): void {
         this.yaw = 0;
         this.pitch = 0;
         this.velocity.set(0, 0, 0);
-        this.entity.setPosition(gameConfig.ship.start.x, gameConfig.ship.start.y, gameConfig.ship.start.z);
+        this.hits = 0;
+        this.overlapping = false;
+        this.entity.setPosition(this.start.x, this.start.y, this.start.z);
         this.entity.setEulerAngles(this.pitch, this.yaw, 0);
     }
 
@@ -123,6 +144,14 @@ export class ShipController {
         this.position.x = this.bounce(this.position.x, min.x, max.x, 'x');
         this.position.y = this.bounce(this.position.y, min.y, max.y, 'y');
         this.position.z = this.bounce(this.position.z, min.z, max.z, 'z');
+
+        const speed = this.velocity.length();
+        const hit = resolveSphereObstacles(this.position, this.velocity, this.radius, this.obstacles);
+        if (hit && !this.overlapping && speed > 2.5) {
+            this.hits += 1;
+        }
+        this.overlapping = hit;
+
         this.entity.setPosition(this.position);
     }
 
@@ -166,15 +195,15 @@ export class ShipController {
         stripe.setLocalPosition(0, 0.18, -0.2);
         visual.addChild(stripe);
 
-        const light = new Entity('ShipFill');
-        light.addComponent('light', {
+        const fill = new Entity('ShipFill');
+        fill.addComponent('light', {
             type: 'omni',
             color: new Color(1, 0.92, 0.55),
             intensity: 0.35,
             range: 8,
             castShadows: false
         });
-        light.setLocalPosition(0, 0.6, 0);
-        visual.addChild(light);
+        fill.setLocalPosition(0, 0.6, 0);
+        visual.addChild(fill);
     }
 }

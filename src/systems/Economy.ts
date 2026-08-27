@@ -15,19 +15,25 @@ export type JobPayout = {
     employmentDelta: number;
 };
 
-export function settleJob(job: JobDef, success: boolean, remainingTime: number, session: GameSession): JobPayout {
+export function settleJob(
+    job: JobDef,
+    success: boolean,
+    remainingTime: number,
+    session: GameSession,
+    propertyDamage = 0
+): JobPayout {
     const lines: PayLine[] = [];
     if (success) {
         const fraction = Math.max(0, Math.min(1, remainingTime / job.deadlineSeconds));
         const bonus = Math.round(job.pay.speedBonusMax * fraction);
         lines.push({ label: copy.lineBase, amount: job.pay.base });
         lines.push({ label: copy.lineEfficiency, amount: bonus });
-        lines.push({ label: copy.lineDamage, amount: 0 });
+        lines.push({ label: copy.lineDamage, amount: -Math.max(0, Math.round(propertyDamage)) });
         lines.push({ label: copy.lineLate, amount: 0 });
     } else {
         lines.push({ label: copy.lineBase, amount: 0 });
         lines.push({ label: copy.lineEfficiency, amount: 0 });
-        lines.push({ label: copy.lineDamage, amount: 0 });
+        lines.push({ label: copy.lineDamage, amount: -Math.max(0, Math.round(propertyDamage)) });
         lines.push({ label: copy.lineLate, amount: -job.pay.failPenalty });
     }
 
