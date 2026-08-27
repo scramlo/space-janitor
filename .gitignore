@@ -25,3 +25,8 @@ dist-ssr
 
 # Source drops for extraction; runtime copies live in public/
 downloads/
+
+# Blender scratch / autosave / regenerable previews
+*.blend1
+blender/**/Untitled.blend
+blender/**/*-preview.png
