@@ -15,7 +15,7 @@ export type JobStart = {
     z: number;
 };
 
-export type JobEnvironment = 'docking-bay' | 'mining-facility';
+export type JobEnvironment = 'docking-bay' | 'space-burger' | 'mining-facility';
 
 export type JobDef = {
     id: string;
@@ -41,13 +41,13 @@ export const jobs: JobDef[] = [
     {
         id: 'job-001',
         number: '001',
-        title: 'Docking Bay 7',
-        client: 'Galactic Freight Corporation',
+        title: 'Space Burger Dining Deck',
+        client: 'Space Burger Franchise #441',
         assignment:
-            'Collect all unsecured orbital debris within the designated remediation volume.',
+            'Recover all floating menu items after the dining-deck gravity machine failed mid-lunch rush.',
         briefingNote:
-            'Client describes the area as perfectly safe. Standard interstellar custodial remediation. Do not scratch the bulkheads.',
-        environment: 'docking-bay',
+            'Burgers, pizza, drinks, and condiment bottles are in free fall. Patrons are unsettled. Do not sample the merchandise. Gravity restoration is pending a parts order from Proxima.',
+        environment: 'space-burger',
         debrisCount: 14,
         deadlineSeconds: 90,
         pay: {
@@ -63,7 +63,7 @@ export const jobs: JobDef[] = [
         debris: {
             minRadius: 0.32,
             maxRadius: 0.7,
-            innerMargin: 2
+            innerMargin: 2.5
         }
     },
     {
