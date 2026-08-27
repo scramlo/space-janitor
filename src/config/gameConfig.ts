@@ -18,6 +18,8 @@ export const gameConfig = {
         pitchSpeed: 70,
         maxPitch: 55,
         radius: 1.15,
+        steerAngle: 32,
+        steerLerp: 14,
         headlight: {
             intensity: 16,
             range: 36,
@@ -31,6 +33,13 @@ export const gameConfig = {
         lookAhead: 4,
         lerp: 7,
         fov: 52,
-        collisionPadding: 0.45
+        collisionPadding: 0.45,
+        showcase: {
+            distance: 7,
+            height: 2.05,
+            yaw: 38,
+            frameShift: 2.35,
+            spinSpeed: 18
+        }
     }
 } as const;

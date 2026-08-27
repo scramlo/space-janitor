@@ -17,6 +17,7 @@ export class CameraController {
     private readonly pivot = new Vec3();
     private obstacles: readonly ObstacleBox[] = [];
     private snapped = false;
+    private showcasing = false;
 
     constructor(app: AppBase, target: Entity) {
         this.target = target;
@@ -34,8 +35,17 @@ export class CameraController {
         this.obstacles = obstacles;
     }
 
+    setShowcase(active: boolean): void {
+        this.showcasing = active;
+        this.snapped = false;
+    }
+
     snap(): void {
-        this.placeDesired();
+        if (this.showcasing) {
+            this.placeShowcase();
+        } else {
+            this.placeDesired();
+        }
         this.position.copy(this.desired);
         this.entity.setPosition(this.position);
         this.entity.lookAt(this.look);
@@ -43,6 +53,14 @@ export class CameraController {
     }
 
     update(dt: number): void {
+        if (this.showcasing) {
+            this.placeShowcase();
+            this.position.copy(this.desired);
+            this.entity.setPosition(this.position);
+            this.entity.lookAt(this.look);
+            return;
+        }
+
         this.placeDesired();
         if (!this.snapped) {
             this.position.copy(this.desired);
@@ -64,6 +82,21 @@ export class CameraController {
         this.desired.y += gameConfig.camera.height;
         this.look.copy(this.forward).mulScalar(gameConfig.camera.lookAhead).add(this.pivot);
         this.clipToObstacles(this.desired);
+    }
+
+    private placeShowcase(): void {
+        const cfg = gameConfig.camera.showcase;
+        this.pivot.copy(this.target.getPosition());
+        const yaw = (cfg.yaw * Math.PI) / 180;
+        this.desired.set(
+            this.pivot.x + Math.sin(yaw) * cfg.distance,
+            this.pivot.y + cfg.height,
+            this.pivot.z + Math.cos(yaw) * cfg.distance
+        );
+        this.entity.setPosition(this.desired);
+        this.entity.lookAt(this.pivot);
+        this.offset.copy(this.entity.right).mulScalar(-cfg.frameShift);
+        this.look.copy(this.pivot).add(this.offset);
     }
 
     private clipToObstacles(point: Vec3): void {

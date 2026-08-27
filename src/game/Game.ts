@@ -21,6 +21,7 @@ import { CollectionSystem } from '../world/CollectionSystem.ts';
 import { DebrisField } from '../world/DebrisField.ts';
 import type { ObstacleBox } from '../world/obstacles.ts';
 import type { WorldTextures } from '../world/textures.ts';
+import { emptyWorldTextures } from '../world/textures.ts';
 
 import { GameScreen } from './screens.ts';
 import { createSession, ownsUpgrade } from './session.ts';
@@ -47,7 +48,7 @@ export class Game {
     private confirmLock = 0.35;
     private readonly textures: WorldTextures;
 
-    constructor(app: AppBase, uiHost: HTMLElement, textures: WorldTextures = { rockWall: null }) {
+    constructor(app: AppBase, uiHost: HTMLElement, textures: WorldTextures = emptyWorldTextures()) {
         this.app = app;
         this.textures = textures;
         this.session = loadSave();
@@ -84,6 +85,12 @@ export class Game {
         this.confirmLock = Math.max(0, this.confirmLock - clamped);
         this.handleConfirmKeys();
 
+        if (this.screen === GameScreen.Briefing) {
+            this.ship.updateShowcase(clamped);
+            this.camera.update(clamped);
+            return;
+        }
+
         if (this.screen !== GameScreen.Playing) {
             this.camera.update(clamped);
             return;
@@ -119,6 +126,11 @@ export class Game {
 
     setTextures(textures: WorldTextures): void {
         this.textures.rockWall = textures.rockWall;
+        this.textures.rustyMetal = textures.rustyMetal;
+        this.textures.rustyMetalGrid = textures.rustyMetalGrid;
+        this.textures.polystyrene = textures.polystyrene;
+        this.textures.rubberTiles = textures.rubberTiles;
+        this.ship.setTextures(this.textures);
         if (this.job.environment !== 'mining-facility') {
             return;
         }
@@ -185,9 +197,9 @@ export class Game {
         this.debris.spawn(job, this.obstacles);
         this.jobSystem.start(job.debrisCount);
         this.timer.start(job.deadlineSeconds);
-        this.camera.snap();
         this.blurUi();
         this.setScreen(GameScreen.Playing);
+        this.camera.snap();
     }
 
     private finishJob(success: boolean): void {
@@ -253,7 +265,7 @@ export class Game {
         this.ship.setBounds(this.job.bounds);
         this.ship.setStart(this.job.start);
         this.ship.reset();
-        this.debris.spawn(this.job, this.obstacles);
+        this.debris.clear();
         this.camera.snap();
     }
 
@@ -273,6 +285,12 @@ export class Game {
     private setScreen(screen: GameScreen): void {
         this.screen = screen;
         this.confirmLock = 0.35;
+        const showcase = screen === GameScreen.Briefing;
+        this.ship.setShowcase(showcase);
+        this.camera.setShowcase(showcase);
+        if (showcase) {
+            this.camera.snap();
+        }
         this.ui.show(screen, {
             job: this.job,
             session: this.session,

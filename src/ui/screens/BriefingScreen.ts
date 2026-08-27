@@ -15,7 +15,7 @@ export class BriefingScreen {
     private readonly funds: HTMLElement;
 
     constructor(onAccept: () => void) {
-        this.root = el('section', 'screen');
+        this.root = el('section', 'screen screen--briefing');
         this.title = el('h1', 'screen__title');
         this.client = el('p', 'screen__kicker');
         this.assignment = el('p', 'screen__body');

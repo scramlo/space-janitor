@@ -38,9 +38,22 @@ export function tilingForBox(sx: number, sy: number, sz: number, metersPerTile =
 }
 
 export function createRockMaterial(maps: PbrMaps | null, tiling: Vec2, tint = { r: 1, g: 1, b: 1 }): StandardMaterial {
-    const material = createLitMaterial(tint.r, tint.g, tint.b, {
+    return createPbrMaterial(maps, tiling, {
+        tint,
         metalness: 0.04,
         gloss: maps ? 1 : 0.1
+    });
+}
+
+export function createPbrMaterial(
+    maps: PbrMaps | null,
+    tiling: Vec2,
+    options?: { tint?: { r: number; g: number; b: number }; metalness?: number; gloss?: number }
+): StandardMaterial {
+    const tint = options?.tint ?? { r: 1, g: 1, b: 1 };
+    const material = createLitMaterial(tint.r, tint.g, tint.b, {
+        metalness: options?.metalness ?? (maps?.metalness ? 1 : 0.15),
+        gloss: options?.gloss ?? (maps ? 1 : 0.35)
     });
     if (!maps) {
         return material;
@@ -49,6 +62,10 @@ export function createRockMaterial(maps: PbrMaps | null, tiling: Vec2, tint = { 
     material.normalMap = maps.normal;
     material.glossMap = maps.roughness;
     material.glossInvert = true;
+    if (maps.metalness) {
+        material.metalnessMap = maps.metalness;
+        material.metalnessMapTiling = tiling;
+    }
     material.diffuseMapTiling = tiling;
     material.normalMapTiling = tiling;
     material.glossMapTiling = tiling;

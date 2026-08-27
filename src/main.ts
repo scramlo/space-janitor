@@ -1,7 +1,6 @@
 import { createApp } from './app/createApp.ts';
 import { Game } from './game/Game.ts';
-import { loadRockWallTextures } from './world/textures.ts';
-import type { PbrMaps } from './world/textures.ts';
+import { emptyWorldTextures, loadRockWallTextures, loadShipTextures } from './world/textures.ts';
 import './style.css';
 import './styles/overlay.css';
 
@@ -12,14 +11,14 @@ if (!(canvas instanceof HTMLCanvasElement) || !uiHost) {
 }
 
 const { app } = await createApp(canvas);
-const game = new Game(app, uiHost, { rockWall: null });
+const game = new Game(app, uiHost, emptyWorldTextures());
 
 app.on('update', (dt: number) => game.update(dt));
 app.on('destroy', () => game.destroy());
 
 try {
-    const rockWall: PbrMaps = await loadRockWallTextures(app);
-    game.setTextures({ rockWall });
+    const [rockWall, shipMaps] = await Promise.all([loadRockWallTextures(app), loadShipTextures(app)]);
+    game.setTextures({ rockWall, ...shipMaps });
 } catch (error) {
-    console.error('Rock wall textures failed to load', error);
+    console.error('World textures failed to load', error);
 }

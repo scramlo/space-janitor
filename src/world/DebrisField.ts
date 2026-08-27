@@ -109,7 +109,7 @@ export class DebrisField {
         return count;
     }
 
-    private clear(): void {
+    clear(): void {
         for (const piece of this.pieces) {
             piece.entity.destroy();
         }
