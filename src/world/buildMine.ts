@@ -14,8 +14,9 @@ const floorMat = createLitMaterial(0.12, 0.09, 0.07, { metalness: 0.15, gloss: 0
 const rockMat = createLitMaterial(0.22, 0.16, 0.12, { metalness: 0.08, gloss: 0.1 });
 const rustMat = createLitMaterial(0.42, 0.22, 0.1, { metalness: 0.55, gloss: 0.28 });
 const steelMat = createLitMaterial(0.28, 0.3, 0.32, { metalness: 0.72, gloss: 0.38 });
-const oreMat = createLitMaterial(0.48, 0.28, 0.12, { metalness: 0.2, gloss: 0.18, emissive: 0.04 });
-const lampMat = createLitMaterial(1, 0.62, 0.22, { metalness: 0.1, gloss: 0.4, emissive: 0.7 });
+const oreMat = createLitMaterial(0.48, 0.28, 0.12, { metalness: 0.2, gloss: 0.18 });
+const crystalMat = createLitMaterial(0.62, 0.28, 0.92, { metalness: 0.08, gloss: 0.55, emissive: 1.35 });
+const crystalCoreMat = createLitMaterial(0.82, 0.45, 1, { metalness: 0.05, gloss: 0.7, emissive: 2.1 });
 
 export function buildMine(app: AppBase, job: JobDef): BuiltWorld {
     const root = new Entity('MiningFacility');
@@ -50,9 +51,12 @@ export function buildMine(app: AppBase, job: JobDef): BuiltWorld {
     addOrePile(root, obstacles, 'OrePile_2', 8, 0.8, 14);
     addOrePile(root, obstacles, 'OrePile_3', -6, 0.7, -16);
 
-    addLamp(root, -8, 12, 6);
-    addLamp(root, 8, 12, -4);
-    addLamp(root, 0, 13, 10);
+    addCrystal(root, obstacles, 'Crystal_Floor_1', 4.5, 0.2, 7.5, 'floor');
+    addCrystal(root, obstacles, 'Crystal_Floor_2', -8.5, 0.2, 3, 'floor');
+    addCrystal(root, obstacles, 'Crystal_Floor_3', 7, 0.2, -14, 'floor');
+    addCrystal(root, obstacles, 'Crystal_Hang_1', 2.2, 15.4, 5, 'hang');
+    addCrystal(root, obstacles, 'Crystal_Hang_2', -5, 15.4, -5.5, 'hang');
+    addCrystal(root, obstacles, 'Crystal_Hang_3', 11, 15.4, 1.5, 'hang');
 
     addStars(root, 28);
     addLights(root);
@@ -108,22 +112,58 @@ function addOrePile(root: Entity, obstacles: ObstacleBox[], name: string, x: num
     obstacles.push(boxObstacle(x, y, z, 3.2, 2.1, 3));
 }
 
-function addLamp(root: Entity, x: number, y: number, z: number): void {
-    const lamp = createPrimitive(`Lamp_${x}_${z}`, 'sphere', lampMat, { castShadows: false });
-    lamp.setLocalScale(0.45, 0.45, 0.45);
-    lamp.setLocalPosition(x, y, z);
-    root.addChild(lamp);
+function addCrystal(
+    root: Entity,
+    obstacles: ObstacleBox[],
+    name: string,
+    x: number,
+    y: number,
+    z: number,
+    kind: 'floor' | 'hang'
+): void {
+    const cluster = new Entity(name);
+    cluster.setLocalPosition(x, y, z);
+    root.addChild(cluster);
 
-    const light = new Entity(`HangLight_${x}_${z}`);
-    light.addComponent('light', {
+    const hanging = kind === 'hang';
+    const shards = hanging
+        ? [
+              { sx: 0.9, sy: 3.4, sz: 0.9, x: 0, y: -1.5, z: 0, rx: 180, ry: 0, rz: 0, core: true },
+              { sx: 0.55, sy: 2.4, sz: 0.55, x: 0.45, y: -1.1, z: 0.2, rx: 168, ry: 25, rz: -12, core: false },
+              { sx: 0.42, sy: 1.9, sz: 0.42, x: -0.4, y: -0.9, z: -0.25, rx: 192, ry: -18, rz: 10, core: false }
+          ]
+        : [
+              { sx: 0.85, sy: 2.6, sz: 0.85, x: 0, y: 1.2, z: 0, rx: 0, ry: 18, rz: 8, core: true },
+              { sx: 0.5, sy: 1.8, sz: 0.5, x: 0.5, y: 0.85, z: 0.15, rx: 14, ry: -20, rz: -10, core: false },
+              { sx: 0.38, sy: 1.4, sz: 0.38, x: -0.42, y: 0.7, z: -0.2, rx: -12, ry: 30, rz: 6, core: false }
+          ];
+
+    for (const [index, shard] of shards.entries()) {
+        const spike = createPrimitive(`${name}_Shard_${index}`, 'cone', shard.core ? crystalCoreMat : crystalMat, {
+            castShadows: false
+        });
+        spike.setLocalScale(shard.sx, shard.sy, shard.sz);
+        spike.setLocalPosition(shard.x, shard.y, shard.z);
+        spike.setLocalEulerAngles(shard.rx, shard.ry, shard.rz);
+        cluster.addChild(spike);
+    }
+
+    const glow = new Entity(`${name}_Glow`);
+    glow.addComponent('light', {
         type: 'omni',
-        color: new Color(1, 0.62, 0.28),
-        intensity: 0.55,
-        range: 18,
+        color: new Color(0.72, 0.32, 1),
+        intensity: hanging ? 1.15 : 0.95,
+        range: hanging ? 14 : 11,
         castShadows: false
     });
-    light.setLocalPosition(x, y - 0.4, z);
-    root.addChild(light);
+    glow.setLocalPosition(0, hanging ? -1.6 : 1.1, 0);
+    cluster.addChild(glow);
+
+    if (hanging) {
+        obstacles.push(boxObstacle(x, y - 1.7, z, 1.8, 3.4, 1.8));
+    } else {
+        obstacles.push(boxObstacle(x, y + 1.1, z, 1.8, 2.4, 1.8));
+    }
 }
 
 function addLights(root: Entity): void {
