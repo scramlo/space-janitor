@@ -30,3 +30,6 @@ downloads/
 *.blend1
 blender/**/Untitled.blend
 blender/**/*-preview.png
+
+# BlendKit material source downloads (textures packed into garbage-truck.blend / GLB)
+blender/materials/*.blend

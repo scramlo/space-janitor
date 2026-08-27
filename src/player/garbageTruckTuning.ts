@@ -2,14 +2,14 @@
 export const garbageTruckTuning = {
     url: '/models/garbage-truck.glb',
     boundsSource: 'vertices' as const,
-    aabb: { min: [-1.11, -0.16, -2.21], max: [1.11, 2.21, 2.46] },
-    dims: [2.22, 2.37, 4.67],
-    center: [0, 1.025, 0.125],
+    aabb: { min: [-1.2397, -0.16, -2.21], max: [1.2634, 2.6341, 2.46] },
+    dims: [2.5031, 2.7941, 4.67],
+    center: [0.0119, 1.237, 0.125],
     groundOffset: 0.16,
     /** Blender nose is -Y → glTF +Z; PlayCanvas forward is -Z. */
     intended: { dimension: 'length' as const, size: 3.6 },
     scale: 3.6 / 4.67,
     /** Center the flying truck on the gameplay root (not floor-seated). */
-    y: -(1.025 * (3.6 / 4.67)),
+    y: -(1.237 * (3.6 / 4.67)),
     yaw: 180
 } as const;
