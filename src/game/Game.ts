@@ -1,8 +1,10 @@
 import { KEY_ENTER, KEY_SPACE  } from 'playcanvas';
 import type { AppBase, Asset } from 'playcanvas';
 
+import { setBackupBeeping, stopBackupBeep } from '../audio/backupBeep.ts';
+import { startBgMusic, stopBgMusic } from '../audio/bgMusic.ts';
 import { playCollectBlip } from '../audio/blip.ts';
-import { playTruckEngineStart } from '../audio/truckEngine.ts';
+import { playTruckEngineStart, stopTruckEngine, updateTruckEngineSpeed } from '../audio/truckEngine.ts';
 import { gameConfig } from '../config/gameConfig.ts';
 import { assignmentFor } from '../config/jobs.ts';
 import type { JobDef } from '../config/jobs.ts';
@@ -81,6 +83,7 @@ export class Game {
         }
 
         window.addEventListener('keydown', this.onWindowKeyDown);
+        window.addEventListener('pointerdown', this.unlockAudio, { once: true });
     }
 
     update(dt: number): void {
@@ -89,12 +92,14 @@ export class Game {
         this.handleConfirmKeys();
 
         if (this.screen === GameScreen.Briefing) {
+            setBackupBeeping(false);
             this.ship.updateShowcase(clamped);
             this.camera.update(clamped);
             return;
         }
 
         if (this.screen !== GameScreen.Playing) {
+            setBackupBeeping(false);
             this.camera.update(clamped);
             return;
         }
@@ -103,6 +108,8 @@ export class Game {
             this.startHold = Math.max(0, this.startHold - clamped);
             this.camera.update(clamped);
             this.ui.renderHud(this.hudSnapshot());
+            updateTruckEngineSpeed(0, clamped);
+            setBackupBeeping(false);
             if (this.goCueArmed && this.startHold <= gameConfig.goCueDuration) {
                 this.goCueArmed = false;
                 this.ui.showGoCue();
@@ -114,6 +121,8 @@ export class Game {
         }
 
         this.ship.update(clamped);
+        updateTruckEngineSpeed(this.ship.speedNorm(), clamped);
+        setBackupBeeping(this.ship.isReversing());
         this.camera.update(clamped);
         this.debris.spin(clamped);
         const collected = this.collection.update(this.ship, this.debris);
@@ -139,6 +148,10 @@ export class Game {
 
     destroy(): void {
         window.removeEventListener('keydown', this.onWindowKeyDown);
+        window.removeEventListener('pointerdown', this.unlockAudio);
+        stopTruckEngine();
+        stopBackupBeep();
+        stopBgMusic();
     }
 
     setTruckModel(asset: Asset): void {
@@ -169,7 +182,12 @@ export class Game {
         }
     }
 
+    private readonly unlockAudio = (): void => {
+        startBgMusic();
+    };
+
     private readonly onWindowKeyDown = (event: globalThis.KeyboardEvent): void => {
+        startBgMusic();
         if (event.repeat || event.code !== 'KeyH') {
             return;
         }
@@ -212,6 +230,7 @@ export class Game {
         if (this.screen !== GameScreen.Briefing) {
             return;
         }
+        startBgMusic();
         const job = this.job;
         this.ship.reset();
         this.applyUpgrades();
@@ -231,6 +250,8 @@ export class Game {
     private finishJob(success: boolean): void {
         this.startHold = 0;
         this.goCueArmed = false;
+        stopTruckEngine();
+        stopBackupBeep();
         this.jobSystem.stop();
         this.timer.stop();
         this.payout = settleJob(this.job, success, this.timer.remaining, this.session, this.propertyDamage);

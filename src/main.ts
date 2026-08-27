@@ -1,4 +1,7 @@
 import { createApp } from './app/createApp.ts';
+import { preloadBackupBeep } from './audio/backupBeep.ts';
+import { preloadBgMusic } from './audio/bgMusic.ts';
+import { preloadCollectBlip } from './audio/blip.ts';
 import { preloadTruckEngine } from './audio/truckEngine.ts';
 import { Game } from './game/Game.ts';
 import { garbageTruckTuning } from './player/garbageTruckTuning.ts';
@@ -28,6 +31,9 @@ try {
     game.setTextures({ rockWall, ...shipMaps });
     game.setTruckModel(truck);
     preloadTruckEngine();
+    preloadBgMusic();
+    preloadBackupBeep();
+    preloadCollectBlip();
 } catch (error) {
     console.error('World assets failed to load', error);
 }

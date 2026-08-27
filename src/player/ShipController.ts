@@ -115,6 +115,31 @@ export class ShipController {
         this.speedMul = maxSpeed;
     }
 
+    /**
+     * Current speed as 0..1 of reachable cruise speed.
+     * Uses min(configured max, thrust/damping terminal) so full throttle
+     * actually hits ~1 — damping often keeps you below raw maxSpeed.
+     */
+    speedNorm(): number {
+        const maxSpeed = gameConfig.ship.maxSpeed * this.speedMul;
+        const terminal =
+            (gameConfig.ship.thrust * this.thrustMul) / gameConfig.ship.linearDamping;
+        const ref = Math.min(maxSpeed, terminal);
+        if (ref <= 0) {
+            return 0;
+        }
+        return Math.min(1, this.velocity.length() / ref);
+    }
+
+    /** True while holding reverse thrust (S without W). */
+    isReversing(): boolean {
+        const keyboard = this.app.keyboard;
+        if (!keyboard) {
+            return false;
+        }
+        return keyboard.isPressed(KEY_S) && !keyboard.isPressed(KEY_W);
+    }
+
     consumeHits(): number {
         const count = this.hits;
         this.hits = 0;
