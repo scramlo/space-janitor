@@ -27,6 +27,7 @@ export function buildMine(app: AppBase, job: JobDef, rockWall: PbrMaps | null = 
     floor.setLocalScale(48, 0.5, 48);
     floor.setLocalPosition(0, -0.25, 0);
     root.addChild(floor);
+    obstacles.push(boxObstacle(0, -0.25, 0, 48, 0.5, 48));
 
     addWall(root, obstacles, rockOf, 'WallNegX', 1.2, 16, 46, -23, 8, 0);
     addWall(root, obstacles, rockOf, 'WallPosX', 1.2, 16, 46, 23, 8, 0);
@@ -38,6 +39,7 @@ export function buildMine(app: AppBase, job: JobDef, rockWall: PbrMaps | null = 
     ceiling.setLocalScale(48, 0.8, 48);
     ceiling.setLocalPosition(0, 16.2, 0);
     root.addChild(ceiling);
+    obstacles.push(boxObstacle(0, 16.2, 0, 48, 0.8, 48));
 
     addMachine(root, obstacles, 'Hopper_L', rustMat, -10, 2.4, -2, 5.2, 4.8, 5.2);
     addMachine(root, obstacles, 'Hopper_R', rustMat, 11, 2.2, -10, 4.6, 4.4, 4.6);

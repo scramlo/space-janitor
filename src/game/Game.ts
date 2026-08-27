@@ -128,6 +128,8 @@ export class Game {
         this.obstacles = built.obstacles;
         this.worldJobId = this.job.id;
         this.ship.setObstacles(this.obstacles);
+        this.camera.setObstacles(this.obstacles);
+        this.camera.snap();
         if (this.screen === GameScreen.Playing) {
             this.debris.spawn(this.job, this.obstacles);
         }
@@ -246,6 +248,7 @@ export class Game {
             this.obstacles = built.obstacles;
             this.worldJobId = this.job.id;
             this.ship.setObstacles(this.obstacles);
+            this.camera.setObstacles(this.obstacles);
         }
         this.ship.setBounds(this.job.bounds);
         this.ship.setStart(this.job.start);

@@ -21,6 +21,81 @@ export function boxObstacle(
     };
 }
 
+export function clipRayAgainstObstacles(
+    origin: { x: number; y: number; z: number },
+    end: { x: number; y: number; z: number },
+    obstacles: readonly ObstacleBox[],
+    padding: number,
+    out: { x: number; y: number; z: number }
+): void {
+    out.x = end.x;
+    out.y = end.y;
+    out.z = end.z;
+    const dx = end.x - origin.x;
+    const dy = end.y - origin.y;
+    const dz = end.z - origin.z;
+    const length = Math.hypot(dx, dy, dz);
+    if (length < 1e-6 || obstacles.length === 0) {
+        return;
+    }
+
+    let bestT = 1;
+    for (const box of obstacles) {
+        const hitT = raySegmentAabb(origin, dx, dy, dz, box);
+        if (hitT !== null && hitT < bestT) {
+            bestT = hitT;
+        }
+    }
+    if (bestT >= 1) {
+        return;
+    }
+
+    const t = Math.max(0, bestT - padding / length);
+    out.x = origin.x + dx * t;
+    out.y = origin.y + dy * t;
+    out.z = origin.z + dz * t;
+}
+
+function raySegmentAabb(
+    origin: { x: number; y: number; z: number },
+    dx: number,
+    dy: number,
+    dz: number,
+    box: ObstacleBox
+): number | null {
+    let tmin = 0;
+    let tmax = 1;
+    const axes: readonly [number, number, number, number][] = [
+        [origin.x, dx, box.min.x, box.max.x],
+        [origin.y, dy, box.min.y, box.max.y],
+        [origin.z, dz, box.min.z, box.max.z]
+    ];
+    for (const [start, delta, min, max] of axes) {
+        if (Math.abs(delta) < 1e-8) {
+            if (start < min || start > max) {
+                return null;
+            }
+            continue;
+        }
+        let t1 = (min - start) / delta;
+        let t2 = (max - start) / delta;
+        if (t1 > t2) {
+            const swap = t1;
+            t1 = t2;
+            t2 = swap;
+        }
+        tmin = Math.max(tmin, t1);
+        tmax = Math.min(tmax, t2);
+        if (tmin > tmax) {
+            return null;
+        }
+    }
+    if (tmin <= 1e-5) {
+        return tmax > 1e-5 ? 0 : null;
+    }
+    return tmin;
+}
+
 export function pointInsideObstacle(
     x: number,
     y: number,

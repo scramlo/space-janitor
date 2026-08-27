@@ -30,6 +30,7 @@ export const gameConfig = {
         height: 2.8,
         lookAhead: 4,
         lerp: 7,
-        fov: 52
+        fov: 52,
+        collisionPadding: 0.45
     }
 } as const;

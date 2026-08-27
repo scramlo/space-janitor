@@ -28,6 +28,7 @@ export function buildBay(app: AppBase, job: JobDef): BuiltWorld {
     floor.setLocalScale(42, 0.4, 42);
     floor.setLocalPosition(0, -0.2, 0);
     root.addChild(floor);
+    obstacles.push(boxObstacle(0, -0.2, 0, 42, 0.4, 42));
 
     addGirder(root, 'BeamNegZ', 40, 0.45, 0.45, 0, 14.5, -20);
     addGirder(root, 'BeamPosZ', 40, 0.45, 0.45, 0, 14.5, 20);
