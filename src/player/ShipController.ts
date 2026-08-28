@@ -29,6 +29,17 @@ const fallbackMat = createLitMaterial(0.42, 0.38, 0.34, { metalness: 0.55, gloss
 const orangeMat = createLitMaterial(0.85, 0.35, 0.08, { metalness: 0.2, gloss: 0.4 });
 const hopperMat = createLitMaterial(0.32, 0.36, 0.38, { metalness: 0.4, gloss: 0.3 });
 
+const STEER_WHEEL_NODES = [
+    'WheelFL',
+    'WheelFL_Rim',
+    'WheelFR',
+    'WheelFR_Rim',
+    'WheelRL',
+    'WheelRL_Rim',
+    'WheelRR',
+    'WheelRR_Rim'
+] as const;
+
 export class ShipController {
     readonly entity: Entity;
     readonly radius = gameConfig.ship.radius;
@@ -55,7 +66,7 @@ export class ShipController {
     private modelRoot: Entity | null = null;
     private showcasing = false;
     private showcaseYaw = 0;
-    private readonly wheels: Entity[] = [];
+    private readonly steerPivots: Entity[] = [];
 
     constructor(app: AppBase, bounds: JobBounds) {
         this.app = app;
@@ -94,7 +105,7 @@ export class ShipController {
             }
             child.destroy();
         }
-        this.wheels.length = 0;
+        this.steerPivots.length = 0;
 
         const t = garbageTruckTuning;
         const yaw = new Entity('TruckYaw');
@@ -107,7 +118,8 @@ export class ShipController {
         this.visual.addChild(yaw);
         this.modelRoot = yaw;
 
-        // Wheel steer is authored into the GLB rest pose; skip runtime yaw until pivots exist.
+        this.bindSteerWheels(model);
+        this.applySteerPose();
     }
 
     setMultipliers(thrust: number, maxSpeed: number): void {
@@ -212,8 +224,30 @@ export class ShipController {
     }
 
     private applySteerPose(): void {
-        for (const wheel of this.wheels) {
-            wheel.setLocalEulerAngles(0, this.steer, 90);
+        for (const pivot of this.steerPivots) {
+            pivot.setLocalEulerAngles(0, this.steer, 0);
+        }
+    }
+
+    private bindSteerWheels(modelRoot: Entity): void {
+        for (const name of STEER_WHEEL_NODES) {
+            const wheel = modelRoot.findByName(name);
+            const parent = wheel?.parent;
+            if (!wheel || !parent) {
+                continue;
+            }
+
+            const localPos = wheel.getLocalPosition().clone();
+            const localRot = wheel.getLocalRotation().clone();
+
+            const pivot = new Entity(`${name}_Steer`);
+            parent.addChild(pivot);
+            pivot.setLocalPosition(localPos);
+            pivot.addChild(wheel);
+            wheel.setLocalPosition(0, 0, 0);
+            wheel.setLocalRotation(localRot);
+
+            this.steerPivots.push(pivot);
         }
     }
 
