@@ -4,6 +4,7 @@ export const copy = {
     division: 'Field Remediation Division',
     briefingEyebrow: 'WORK ORDER',
     briefingCta: 'ACCEPT ASSIGNMENT',
+    briefingNewCareer: 'START NEW CAREER',
     resultsEyebrow: 'JOB PAYMENT',
     resultsCta: 'ACKNOWLEDGE',
     upgradeEyebrow: 'EQUIPMENT REQUISITION',

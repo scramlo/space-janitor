@@ -97,7 +97,10 @@ export const jobs: JobDef[] = [
 ];
 
 export function assignmentFor(jobsCompleted: number): JobDef {
-    const index = Math.min(Math.max(0, jobsCompleted), jobs.length - 1);
+    if (jobs.length === 0) {
+        throw new Error('No jobs configured.');
+    }
+    const index = ((jobsCompleted % jobs.length) + jobs.length) % jobs.length;
     const job = jobs[index];
     if (!job) {
         throw new Error('No jobs configured.');

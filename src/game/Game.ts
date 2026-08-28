@@ -240,7 +240,7 @@ export class Game {
         this.applyUpgrades();
         this.propertyDamage = 0;
         this.debris.spawn(job, this.obstacles);
-        this.jobSystem.start(job.debrisCount);
+        this.jobSystem.start(this.debris.pieces.length);
         this.timer.start(job.deadlineSeconds);
         this.timer.stop();
         this.startHold = gameConfig.jobStartHold;

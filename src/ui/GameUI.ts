@@ -32,7 +32,7 @@ export class GameUI {
         host.classList.add('ui-root');
         this.hud = new Hud();
         this.goCue = new GoCue();
-        this.briefing = new BriefingScreen(handlers.onAcceptJob);
+        this.briefing = new BriefingScreen(handlers.onAcceptJob, handlers.onRestart);
         this.results = new ResultsScreen(handlers.onAcknowledgeResults);
         this.upgrade = new UpgradeScreen(handlers.onBuyUpgrade, handlers.onSkipUpgrade);
         this.gameOver = new GameOverScreen(handlers.onRestart);

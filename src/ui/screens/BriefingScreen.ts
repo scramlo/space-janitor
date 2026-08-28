@@ -14,7 +14,7 @@ export class BriefingScreen {
     private readonly meta: HTMLElement;
     private readonly funds: HTMLElement;
 
-    constructor(onAccept: () => void) {
+    constructor(onAccept: () => void, onNewCareer: () => void) {
         this.root = el('section', 'screen screen--briefing');
         this.title = el('h1', 'screen__title');
         this.client = el('p', 'screen__kicker');
@@ -38,8 +38,11 @@ export class BriefingScreen {
         const accept = el('button', 'btn btn--primary', copy.briefingCta);
         accept.type = 'button';
         accept.addEventListener('click', () => onAccept());
+        const newCareer = el('button', 'btn', copy.briefingNewCareer);
+        newCareer.type = 'button';
+        newCareer.addEventListener('click', () => onNewCareer());
         const actions = el('div', 'panel__actions');
-        actions.append(accept);
+        actions.append(accept, newCareer);
         panel.append(actions);
 
         this.root.append(panel);
