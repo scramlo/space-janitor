@@ -4,8 +4,8 @@ const TRUCK_START_URL = '/audio/truck_start.mp3';
 const TRUCK_RUN_URL = '/audio/engine_running_low.mp3';
 const TRUCK_TOP_URL = '/audio/add_top_speed.mp3';
 
-const IDLE_GAIN = 1;
-const MAX_GAIN = 1;
+const IDLE_GAIN = 0.5;
+const MAX_GAIN = 0.7;
 const TOP_MAX_GAIN = MAX_GAIN * 1;
 /** Normalized speed where the top-speed layer starts fading in. */
 const TOP_SPEED_IN = 0.55;

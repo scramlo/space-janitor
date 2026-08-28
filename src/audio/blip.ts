@@ -1,7 +1,7 @@
 import { getAudioContext } from './context.ts';
 
 const SUCK_URL = '/audio/suck.mp3';
-const SUCK_GAIN = 0.65;
+const SUCK_GAIN = 1;
 
 let bufferPromise: Promise<AudioBuffer | null> | null = null;
 
