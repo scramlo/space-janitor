@@ -29,16 +29,10 @@ const fallbackMat = createLitMaterial(0.42, 0.38, 0.34, { metalness: 0.55, gloss
 const orangeMat = createLitMaterial(0.85, 0.35, 0.08, { metalness: 0.2, gloss: 0.4 });
 const hopperMat = createLitMaterial(0.32, 0.36, 0.38, { metalness: 0.4, gloss: 0.3 });
 
-const STEER_WHEEL_NODES = [
-    'WheelFL',
-    'WheelFL_Rim',
-    'WheelFR',
-    'WheelFR_Rim',
-    'WheelRL',
-    'WheelRL_Rim',
-    'WheelRR',
-    'WheelRR_Rim'
-] as const;
+const STEER_WHEEL_NODES = ['WheelFL', 'WheelFR'] as const;
+const ROLL_WHEEL_NODES = ['WheelFL', 'WheelFR', 'WheelRL', 'WheelRR'] as const;
+/** Blender tire radius (m) before `garbageTruckTuning.scale`. */
+const WHEEL_RADIUS = 0.255;
 
 export class ShipController {
     readonly entity: Entity;
@@ -67,6 +61,8 @@ export class ShipController {
     private showcasing = false;
     private showcaseYaw = 0;
     private readonly steerPivots: Entity[] = [];
+    private readonly rollPivots: Entity[] = [];
+    private wheelRoll = 0;
 
     constructor(app: AppBase, bounds: JobBounds) {
         this.app = app;
@@ -106,6 +102,8 @@ export class ShipController {
             child.destroy();
         }
         this.steerPivots.length = 0;
+        this.rollPivots.length = 0;
+        this.wheelRoll = 0;
 
         const t = garbageTruckTuning;
         const yaw = new Entity('TruckYaw');
@@ -119,7 +117,9 @@ export class ShipController {
         this.modelRoot = yaw;
 
         this.bindSteerWheels(model);
+        this.bindRollWheels(model);
         this.applySteerPose();
+        this.applyRollPose();
     }
 
     setMultipliers(thrust: number, maxSpeed: number): void {
@@ -162,8 +162,10 @@ export class ShipController {
         this.yaw = 0;
         this.pitch = 0;
         this.steer = 0;
+        this.wheelRoll = 0;
         this.velocity.set(0, 0, 0);
         this.applySteerPose();
+        this.applyRollPose();
         this.hits = 0;
         this.overlapping = false;
         this.showcaseYaw = 0;
@@ -199,6 +201,7 @@ export class ShipController {
         this.applySteer(keyboard, dt);
         this.entity.setEulerAngles(this.pitch, this.yaw, 0);
         this.applyThrust(keyboard, dt);
+        this.applyWheelRoll(dt);
         this.integrate(dt);
     }
 
@@ -229,6 +232,28 @@ export class ShipController {
         }
     }
 
+    private applyRollPose(): void {
+        for (const pivot of this.rollPivots) {
+            // Roll around local X (axle through the hub after glTF Y-up export).
+            pivot.setLocalEulerAngles(this.wheelRoll, 0, 0);
+        }
+    }
+
+    private applyWheelRoll(dt: number): void {
+        if (this.rollPivots.length === 0) {
+            return;
+        }
+        this.forward.copy(this.entity.forward);
+        const forwardSpeed = this.velocity.dot(this.forward);
+        const radius = WHEEL_RADIUS * garbageTruckTuning.scale;
+        if (radius <= 0) {
+            return;
+        }
+        // Positive forward speed → wheels spin as if rolling under the truck.
+        this.wheelRoll -= (forwardSpeed / radius) * (180 / Math.PI) * dt;
+        this.applyRollPose();
+    }
+
     private bindSteerWheels(modelRoot: Entity): void {
         for (const name of STEER_WHEEL_NODES) {
             const wheel = modelRoot.findByName(name);
@@ -248,6 +273,32 @@ export class ShipController {
             wheel.setLocalRotation(localRot);
 
             this.steerPivots.push(pivot);
+        }
+    }
+
+    private bindRollWheels(modelRoot: Entity): void {
+        for (const name of ROLL_WHEEL_NODES) {
+            const wheel = modelRoot.findByName(name);
+            if (!wheel) {
+                continue;
+            }
+            // Front wheels sit under a steer pivot; rears are still on TruckRoot.
+            const parent = wheel.parent;
+            if (!parent) {
+                continue;
+            }
+
+            const localPos = wheel.getLocalPosition().clone();
+            const localRot = wheel.getLocalRotation().clone();
+
+            const pivot = new Entity(`${name}_Roll`);
+            parent.addChild(pivot);
+            pivot.setLocalPosition(localPos);
+            pivot.addChild(wheel);
+            wheel.setLocalPosition(0, 0, 0);
+            wheel.setLocalRotation(localRot);
+
+            this.rollPivots.push(pivot);
         }
     }
 
