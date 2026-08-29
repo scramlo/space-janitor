@@ -18,6 +18,8 @@ export class CameraController {
     private obstacles: readonly ObstacleBox[] = [];
     private snapped = false;
     private showcasing = false;
+    private showcasePaused = false;
+    private showcaseOrbitYaw = 0;
 
     constructor(app: AppBase, target: Entity) {
         this.target = target;
@@ -38,6 +40,14 @@ export class CameraController {
     setShowcase(active: boolean): void {
         this.showcasing = active;
         this.snapped = false;
+        if (!active) {
+            this.showcasePaused = false;
+            this.showcaseOrbitYaw = 0;
+        }
+    }
+
+    setShowcasePaused(paused: boolean): void {
+        this.showcasePaused = paused;
     }
 
     snap(): void {
@@ -54,6 +64,10 @@ export class CameraController {
 
     update(dt: number): void {
         if (this.showcasing) {
+            if (!this.showcasePaused) {
+                this.showcaseOrbitYaw =
+                    (this.showcaseOrbitYaw + gameConfig.camera.showcase.spinSpeed * dt) % 360;
+            }
             this.placeShowcase();
             this.position.copy(this.desired);
             this.entity.setPosition(this.position);
@@ -87,7 +101,7 @@ export class CameraController {
     private placeShowcase(): void {
         const cfg = gameConfig.camera.showcase;
         this.pivot.copy(this.target.getPosition());
-        const yaw = (cfg.yaw * Math.PI) / 180;
+        const yaw = ((cfg.yaw + this.showcaseOrbitYaw) * Math.PI) / 180;
         this.desired.set(
             this.pivot.x + Math.sin(yaw) * cfg.distance,
             this.pivot.y + cfg.height,

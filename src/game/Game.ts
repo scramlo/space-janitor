@@ -51,6 +51,7 @@ export class Game {
     private confirmLock = 0.35;
     private startHold = 0;
     private goCueArmed = false;
+    private showcaseHoldPause = false;
     private readonly textures: WorldTextures;
 
     constructor(app: AppBase, uiHost: HTMLElement, textures: WorldTextures = emptyWorldTextures()) {
@@ -84,6 +85,9 @@ export class Game {
 
         window.addEventListener('keydown', this.onWindowKeyDown);
         window.addEventListener('pointerdown', this.unlockAudio, { once: true });
+        window.addEventListener('pointerdown', this.onShowcasePointerDown);
+        window.addEventListener('pointerup', this.onShowcasePointerUp);
+        window.addEventListener('pointercancel', this.onShowcasePointerUp);
     }
 
     update(dt: number): void {
@@ -94,6 +98,7 @@ export class Game {
         if (this.screen === GameScreen.Briefing) {
             setBackupBeeping(false);
             this.ship.updateShowcase(clamped);
+            this.camera.setShowcasePaused(this.showcaseHoldPause);
             this.camera.update(clamped);
             return;
         }
@@ -149,6 +154,9 @@ export class Game {
     destroy(): void {
         window.removeEventListener('keydown', this.onWindowKeyDown);
         window.removeEventListener('pointerdown', this.unlockAudio);
+        window.removeEventListener('pointerdown', this.onShowcasePointerDown);
+        window.removeEventListener('pointerup', this.onShowcasePointerUp);
+        window.removeEventListener('pointercancel', this.onShowcasePointerUp);
         stopTruckEngine();
         stopBackupBeep();
         stopBgMusic();
@@ -188,6 +196,22 @@ export class Game {
 
     private readonly unlockAudio = (): void => {
         startBgMusic();
+    };
+
+    private readonly onShowcasePointerDown = (event: PointerEvent): void => {
+        if (this.screen !== GameScreen.Briefing || event.button !== 0) {
+            return;
+        }
+        this.showcaseHoldPause = true;
+        this.ship.setShowcasePaused(true);
+    };
+
+    private readonly onShowcasePointerUp = (): void => {
+        if (!this.showcaseHoldPause) {
+            return;
+        }
+        this.showcaseHoldPause = false;
+        this.ship.setShowcasePaused(false);
     };
 
     private readonly onWindowKeyDown = (event: globalThis.KeyboardEvent): void => {
