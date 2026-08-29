@@ -24,6 +24,8 @@ import { createPrimitive } from '../world/primitives.ts';
 import type { WorldTextures } from '../world/textures.ts';
 
 import { garbageTruckTuning } from './garbageTruckTuning.ts';
+import { IntakePortalEffect } from './intakePortalEffect.ts';
+import { purgeAtomizerLeaks } from './purgeAtomizerLeaks.ts';
 
 const fallbackMat = createLitMaterial(0.42, 0.38, 0.34, { metalness: 0.55, gloss: 0.35 });
 const orangeMat = createLitMaterial(0.85, 0.35, 0.08, { metalness: 0.2, gloss: 0.4 });
@@ -58,10 +60,10 @@ export class ShipController {
     private headlight: LightComponent | null = null;
     private visual!: Entity;
     private modelRoot: Entity | null = null;
-    private showcasing = false;
-    private showcaseYaw = 0;
+    private showcasePaused = false;
     private readonly steerPivots: Entity[] = [];
     private readonly rollPivots: Entity[] = [];
+    private readonly intakePortal = new IntakePortalEffect();
     private wheelRoll = 0;
 
     constructor(app: AppBase, bounds: JobBounds) {
@@ -103,6 +105,8 @@ export class ShipController {
         }
         this.steerPivots.length = 0;
         this.rollPivots.length = 0;
+        purgeAtomizerLeaks(this.app.root);
+        this.intakePortal.detach();
         this.wheelRoll = 0;
 
         const t = garbageTruckTuning;
@@ -118,6 +122,9 @@ export class ShipController {
 
         this.bindSteerWheels(model);
         this.bindRollWheels(model);
+        purgeAtomizerLeaks(model);
+        this.intakePortal.attach(model, this.app);
+
         this.applySteerPose();
         this.applyRollPose();
     }
@@ -168,27 +175,29 @@ export class ShipController {
         this.applyRollPose();
         this.hits = 0;
         this.overlapping = false;
-        this.showcaseYaw = 0;
         this.visual.setLocalEulerAngles(0, 0, 0);
         this.entity.setPosition(this.start.x, this.start.y, this.start.z);
         this.entity.setEulerAngles(this.pitch, this.yaw, 0);
     }
 
     setShowcase(active: boolean): void {
-        this.showcasing = active;
         if (active) {
             return;
         }
-        this.showcaseYaw = 0;
+        this.showcasePaused = false;
         this.visual.setLocalEulerAngles(0, 0, 0);
     }
 
+    isShowcasePaused(): boolean {
+        return this.showcasePaused;
+    }
+
+    setShowcasePaused(paused: boolean): void {
+        this.showcasePaused = paused;
+    }
+
     updateShowcase(dt: number): void {
-        if (!this.showcasing) {
-            return;
-        }
-        this.showcaseYaw = (this.showcaseYaw + gameConfig.camera.showcase.spinSpeed * dt) % 360;
-        this.visual.setLocalEulerAngles(0, this.showcaseYaw, 0);
+        this.intakePortal.update(dt);
     }
 
     update(dt: number): void {
@@ -202,6 +211,7 @@ export class ShipController {
         this.entity.setEulerAngles(this.pitch, this.yaw, 0);
         this.applyThrust(keyboard, dt);
         this.applyWheelRoll(dt);
+        this.intakePortal.update(dt);
         this.integrate(dt);
     }
 

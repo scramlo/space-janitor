@@ -9,6 +9,7 @@ import {
     KEY_ENTER,
     KEY_SPACE,
     LightComponentSystem,
+    ParticleSystemComponentSystem,
     RenderComponentSystem,
     RESOLUTION_AUTO,
     TextureHandler,
@@ -31,7 +32,12 @@ export async function createApp(canvas: HTMLCanvasElement): Promise<CreatedApp> 
 
     const createOptions = new AppOptions();
     createOptions.graphicsDevice = device;
-    createOptions.componentSystems = [RenderComponentSystem, CameraComponentSystem, LightComponentSystem];
+    createOptions.componentSystems = [
+        RenderComponentSystem,
+        CameraComponentSystem,
+        LightComponentSystem,
+        ParticleSystemComponentSystem
+    ];
     createOptions.resourceHandlers = [TextureHandler, ContainerHandler];
 
     const app = new AppBase(canvas);
