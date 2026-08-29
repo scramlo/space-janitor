@@ -931,4 +931,6 @@ def build():
     }
 
 
-RESULT = build()
+if __name__ == "__main__":
+    RESULT = build()
+    print(RESULT)
