@@ -1,6 +1,6 @@
 /** Calibrated from `public/models/garbage-truck-concept.glb` via inspect-glb (boundsSource: vertices). */
 export const garbageTruckTuning = {
-    url: '/models/garbage-truck-concept.glb?v=7',
+    url: '/models/garbage-truck-concept.glb?v=8',
     boundsSource: 'vertices' as const,
     aabb: { min: [-1.2803, 0, -1.718], max: [1.2803, 2.3371, 1.7147] },
     dims: [2.5605, 2.3371, 3.4327],
